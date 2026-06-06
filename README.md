@@ -17,22 +17,6 @@ from 1950–2025.
   intensity and rainfall, and percentile comparisons against the whole catalogue
   and its genesis-month average.
 
-## How it works
-
-Everything is embedded in `index.html` — there is no server, build step, or
-external dependency beyond Google Fonts. The ~398k track points are packed into a
-gzipped binary payload (base64) and decoded in the browser via the
-`DecompressionStream` API. The file is ~3.9 MB.
-
-> Requires a modern browser (Chrome/Edge, Firefox, Safari 16.4+) for
-> `DecompressionStream`. Serving over http(s) — e.g. GitHub Pages — is the most
-> reliable way to view it.
-
-## Hosting
-
-Drop `index.html` on any static host (GitHub Pages, Cloudflare Pages, Netlify,
-Vercel, S3, …). No configuration needed.
-
 ## Data
 
 Source: ERA5-derived Western Disturbance tracking catalogue (WD v5),
