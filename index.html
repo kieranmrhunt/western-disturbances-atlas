@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Western Disturbances Catalog · 1950–2025</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -199,6 +199,59 @@ tbody td .id{color:var(--ink)} .pill{padding:1px 6px; border-radius:5px; font-si
 #loader .t{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.2em; color:var(--ink3); text-transform:uppercase}
 .fadein{animation:fade .5s ease both} @keyframes fade{from{opacity:0; transform:translateY(6px)}to{opacity:1}}
 .sparkwrap{border:1px solid var(--line); border-radius:10px; padding:10px; background:var(--panel2)}
+
+/* ---------- bottom tab bar (mobile only) ---------- */
+.tabbar{display:none}
+@media (max-width:820px){
+  .tabbar{display:grid; grid-template-columns:repeat(3,1fr); position:fixed; left:0; right:0; bottom:0; z-index:60;
+    background:rgba(9,13,24,.94); backdrop-filter:blur(12px); border-top:1px solid var(--line);
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+  .tabbtn{display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none; cursor:pointer;
+    color:var(--ink3); font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    padding:6px 0; border-radius:10px; transition:.13s}
+  .tabbtn svg{width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linejoin:round; stroke-linecap:round}
+  .tabbtn.on{color:var(--cyan)}
+  .tabbtn .dot{position:absolute; top:5px; margin-left:16px; width:6px; height:6px; border-radius:50%; background:var(--amber); display:none}
+  .tabbtn.has-sel .dot{display:block}
+}
+
+/* ---------- intermediate (small laptop / tablet) ---------- */
+@media (max-width:1100px) and (min-width:821px){
+  main{grid-template-columns:232px 1fr 312px}
+  .kpi .v{font-size:20px}
+}
+
+/* ---------- phone ---------- */
+@media (max-width:820px){
+  html,body{overflow:auto; -webkit-text-size-adjust:100%}
+  #app{height:auto; min-height:100vh; visibility:visible}
+  header{position:sticky; top:0; z-index:40; padding:11px 15px 9px; flex-wrap:wrap; gap:10px 18px;
+    background:rgba(9,13,24,.93); backdrop-filter:blur(12px)}
+  .brand h1{font-size:19px} .brand .eyebrow{font-size:9px} .brand .sub{display:none}
+  .hstat{gap:18px} .hstat .v{font-size:17px} .hstat .k{font-size:8.5px}
+  .hstat>div:nth-child(3){display:none}
+  main{display:block}
+  .col{overflow:visible !important; height:auto; border:none !important; background:none !important; padding:14px 14px 86px}
+  main .col{display:none}
+  main.m-explore .col.center{display:flex}
+  main.m-filters .col.left{display:block}
+  main.m-detail .col.right{display:block}
+  .col.center{overflow:visible; padding:12px 12px 88px; gap:12px}
+  .kpis{display:flex; overflow-x:auto; gap:9px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding:2px 0 4px}
+  .kpis::-webkit-scrollbar{height:0}
+  .kpi{min-width:144px; flex:none; scroll-snap-align:start}
+  .mapwrap{height:54vh; min-height:340px; flex:none}
+  .tablewrap{height:auto}
+  .tscroll{max-height:54vh}
+  .col.right{padding:0 0 88px}
+  .months .mbtn{padding:11px 0; font-size:11px}
+  .regbtn{padding:10px 11px} .sortsel{padding:11px}
+  .dual input[type=range]::-webkit-slider-thumb{width:19px; height:19px}
+  .dual input[type=range]::-moz-range-thumb{width:19px; height:19px}
+  .legend{transform:scale(.9); transform-origin:bottom left}
+  #tip{display:none !important}
+  .chartbox canvas, .sparkwrap canvas{touch-action:pan-y}
+}
 </style>
 </head>
 <body>
@@ -319,6 +372,11 @@ tbody td .id{color:var(--ink)} .pill{padding:1px 6px; border-radius:5px; font-si
     <!-- RIGHT: detail / distributions -->
     <div class="col right" id="right"></div>
   </main>
+  <nav class="tabbar" id="tabbar">
+    <button class="tabbtn on" data-v="explore"><svg viewBox="0 0 24 24"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg><span>Explore</span></button>
+    <button class="tabbtn" data-v="filters"><svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg><span>Filters</span></button>
+    <button class="tabbtn" data-v="detail"><span class="dot"></span><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Detail</span></button>
+  </nav>
 </div>
 
 <script>
@@ -432,7 +490,22 @@ function initUI(){
 
   initMap();
   ready=true;
-  window.addEventListener('resize', ()=>{ sizeCanvases(); drawBase(); drawTracks(); drawOverlay(); });
+  let _rt; window.addEventListener('resize', ()=>{ clearTimeout(_rt); _rt=setTimeout(()=>{
+    if(!isMobile() || document.querySelector('main').classList.contains('m-explore')){
+      sizeCanvases(); drawBase(); drawTracks(); drawOverlay();
+    }
+  },200); });
+  document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>setView(b.dataset.v));
+  document.querySelector('main').classList.add('m-explore');
+}
+
+function isMobile(){ return window.matchMedia('(max-width:820px)').matches; }
+function setView(v){
+  const main=document.querySelector('main');
+  main.classList.remove('m-explore','m-filters','m-detail'); main.classList.add('m-'+v);
+  document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
+  if(v==='explore'){ requestAnimationFrame(()=>{ sizeCanvases(); drawBase(); drawTracks(); drawOverlay(); }); }
+  else if(v==='detail'){ if(selected>=0) renderDetail(selected); else renderRightEmpty(); }
 }
 
 function setupDual(wrap,minId,maxId,fillId,loId,hiId,lo,hi,cb){
@@ -487,7 +560,6 @@ function applyFilters(){
 function updateKPIs(){
   const n=filtered.length;
   document.getElementById('hCount').innerHTML=n.toLocaleString();
-  document.getElementById('mapCount').textContent=n.toLocaleString();
   let si=0,sp=0,sl=0,sd=0,hot=0;
   for(const i of filtered){ si+=C('pk_int',i); sp+=C('pk_pr',i); sl+=C('len_km',i); sd+=C('dur',i); if(C('pct_int',i)>=95)hot++; }
   const mi=n?si/n:0, mp=n?sp/n:0, ml=n?sl/n:0, md=n?sd/n:0;
@@ -515,13 +587,24 @@ function initMap(){
   sizeCanvases(); drawBase();
   cvOverlay.addEventListener('mousemove',onMove);
   cvOverlay.addEventListener('mouseleave',()=>{hovered=-1; drawOverlay(); document.getElementById('tip').style.display='none';});
-  cvOverlay.addEventListener('click',onClick);
+  let touchStart=null, lastTouch=0;
+  cvOverlay.addEventListener('touchstart',e=>{ if(e.touches.length===1){const t=e.touches[0]; touchStart={x:t.clientX,y:t.clientY};} },{passive:true});
+  cvOverlay.addEventListener('touchend',e=>{
+    if(!touchStart) return; const t=e.changedTouches[0];
+    const moved=Math.hypot(t.clientX-touchStart.x, t.clientY-touchStart.y); touchStart=null;
+    if(moved>14) return;                 // it was a scroll, not a tap
+    lastTouch=Date.now(); e.preventDefault();
+    handleTap(t.clientX,t.clientY);
+  },{passive:false});
+  cvOverlay.addEventListener('click',e=>{ if(Date.now()-lastTouch<700) return; handleTap(e.clientX,e.clientY); });
 }
 function sizeCanvases(){
   const r=document.getElementById('mapwrap').getBoundingClientRect();
-  DPR=Math.min(window.devicePixelRatio||1,2); W=r.width; H=r.height;
-  [cvBase,cvTracks,cvOverlay,pickCv].forEach(cv=>{cv.width=W*DPR; cv.height=H*DPR;});
-  [ctxBase,ctxTracks,ctxOverlay,pickCtx].forEach(c=>{c.setTransform(DPR,0,0,DPR,0,0);});
+  DPR=Math.min(window.devicePixelRatio||1, isMobile()?1.5:2); W=r.width; H=r.height;
+  [cvBase,cvTracks,cvOverlay].forEach(cv=>{cv.width=Math.max(1,Math.round(W*DPR)); cv.height=Math.max(1,Math.round(H*DPR));});
+  [ctxBase,ctxTracks,ctxOverlay].forEach(c=>{c.setTransform(DPR,0,0,DPR,0,0);});
+  // pick layer kept at CSS resolution (1×) — cheaper to fill and read
+  pickCv.width=Math.max(1,Math.round(W)); pickCv.height=Math.max(1,Math.round(H)); pickCtx.setTransform(1,0,0,1,0,0);
 }
 function projX(lon){ return (lon-MAP_BBOX.w)/(MAP_BBOX.e-MAP_BBOX.w)*W; }
 function projY(lat){ return (MAP_BBOX.n-lat)/(MAP_BBOX.n-MAP_BBOX.s)*H; }
@@ -545,29 +628,41 @@ function drawBase(){
 }
 function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
 
+let mapRender=[];   // indices actually drawn on the map (== hittable set)
 function drawTracks(){
   const c=ctxTracks; c.clearRect(0,0,W,H);
   pickCtx.clearRect(0,0,W,H);
-  const n=filtered.length;
-  // alpha scales down as more tracks shown
+  // hard cap on rendered tracks so a broad filter can't hang/crash mobile webviews.
+  // desktop is uncapped — identical to the original full-catalogue render.
+  const cap=isMobile()?500:Infinity;
+  let list=filtered, sampled=false;
+  if(filtered.length>cap){
+    list=[]; const step=filtered.length/cap;
+    for(let s=0;s<filtered.length;s+=step) list.push(filtered[Math.floor(s)]);
+    sampled=true;
+  }
+  mapRender=list;
+  const n=list.length;
   const alpha=n>4000?0.10:n>1500?0.16:n>500?0.28:n>120?0.5:0.8;
   const lw=n>2000?0.6:n>500?0.8:1.1;
   c.lineWidth=lw; c.lineJoin='round'; c.lineCap='round';
-  pickCtx.lineWidth=4; pickCtx.lineJoin='round'; pickCtx.lineCap='round';
+  pickCtx.lineWidth=5; pickCtx.lineJoin='round'; pickCtx.lineCap='round';
   for(let q=0;q<n;q++){
-    const idx=filtered[q]; const [start,np]=OFF[idx];
+    const idx=list[q]; const [start,np]=OFF[idx];
     c.beginPath(); pickCtx.beginPath();
     for(let i=0;i<np;i++){ const k=start+i; const x=projX(PLON[k]/100), y=projY(PLAT[k]/100);
       if(i===0){c.moveTo(x,y); pickCtx.moveTo(x,y);} else {c.lineTo(x,y); pickCtx.lineTo(x,y);} }
-    const col=intColor(C('pk_int',idx));
-    c.globalAlpha=alpha; c.strokeStyle=col; c.stroke();
-    // pick color encodes q+1
+    c.globalAlpha=alpha; c.strokeStyle=intColor(C('pk_int',idx)); c.stroke();
     const id=q+1; pickCtx.strokeStyle=`rgb(${id&255},${(id>>8)&255},${(id>>16)&255})`; pickCtx.globalAlpha=1; pickCtx.stroke();
   }
   c.globalAlpha=1;
-  // genesis dots for small sets
-  if(n<=400){ for(let q=0;q<n;q++){ const idx=filtered[q]; const [start]=OFF[idx];
-    const x=projX(PLON[start]/100),y=projY(PLAT[start]/100); c.beginPath(); c.arc(x,y,1.6,0,7); c.fillStyle=intColor(C('pk_int',idx)); c.globalAlpha=.9; c.fill(); } c.globalAlpha=1; }
+  if(n<=400){ for(let q=0;q<n;q++){ const idx=list[q]; const [start]=OFF[idx];
+    const x=projX(PLON[start]/100),y=projY(PLAT[start]/100); c.beginPath(); c.arc(x,y,1.6,0,7);
+    c.fillStyle=intColor(C('pk_int',idx)); c.globalAlpha=.9; c.fill(); } c.globalAlpha=1; }
+  const mc=document.getElementById('mapCount');
+  if(mc) mc.textContent = sampled
+    ? (n.toLocaleString()+' of '+filtered.length.toLocaleString()+' (sample)')
+    : filtered.length.toLocaleString();
 }
 
 function drawOverlay(){
@@ -591,12 +686,12 @@ function drawOverlay(){
 
 function onMove(e){
   const r=cvOverlay.getBoundingClientRect();
-  const px=Math.round((e.clientX-r.left)*DPR), py=Math.round((e.clientY-r.top)*DPR);
+  const px=Math.round(e.clientX-r.left), py=Math.round(e.clientY-r.top);
   if(px<0||py<0||px>=pickCv.width||py>=pickCv.height) return;
   const d=pickCtx.getImageData(px,py,1,1).data;
   const id=d[0]|(d[1]<<8)|(d[2]<<16);
   const q=id-1;
-  const idx=(q>=0&&q<filtered.length)?filtered[q]:-1;
+  const idx=(q>=0&&q<mapRender.length)?mapRender[q]:-1;
   if(idx!==hovered){ hovered=idx; drawOverlay(); }
   const tip=document.getElementById('tip');
   if(idx>=0){
@@ -611,7 +706,30 @@ function onMove(e){
     tip.style.left=tx+'px'; tip.style.top=ty+'px';
   } else tip.style.display='none';
 }
-function onClick(){ if(hovered>=0){ selected=hovered; drawOverlay(); renderDetail(selected); highlightRow(); } }
+function handleTap(clientX,clientY){
+  const idx=pickNear(clientX,clientY, isMobile()?17:6);
+  if(idx<0) return;
+  selected=idx; hovered=-1; drawOverlay(); highlightRow();
+  if(isMobile()){ setView('detail'); window.scrollTo({top:0,behavior:'smooth'}); }
+  else renderDetail(selected);
+}
+// nearest non-empty pixel in the pick layer within a tolerance (finger-friendly)
+function pickNear(clientX,clientY,tolCss){
+  const r=cvOverlay.getBoundingClientRect();
+  const cx=Math.round(clientX-r.left), cy=Math.round(clientY-r.top);
+  const tol=Math.round(tolCss);
+  const x0=Math.max(0,cx-tol), y0=Math.max(0,cy-tol);
+  const x1=Math.min(pickCv.width-1,cx+tol), y1=Math.min(pickCv.height-1,cy+tol);
+  if(x1<x0||y1<y0) return -1;
+  const w=x1-x0+1, h=y1-y0+1, data=pickCtx.getImageData(x0,y0,w,h).data;
+  let best=-1, bestD=Infinity;
+  for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){
+    const o=(yy*w+xx)*4, id=data[o]|(data[o+1]<<8)|(data[o+2]<<16);
+    if(id>0){ const ddx=(x0+xx)-cx, ddy=(y0+yy)-cy, d=ddx*ddx+ddy*ddy; if(d<bestD){bestD=d; best=id;} }
+  }
+  if(best>0){ const q=best-1; if(q<mapRender.length) return mapRender[q]; }
+  return -1;
+}
 
 /* ============ TABLE ============ */
 function renderTable(){
@@ -642,7 +760,8 @@ function renderTable(){
     </tr>`;
   }
   tb.innerHTML=html;
-  tb.querySelectorAll('tr').forEach(tr=>tr.onclick=()=>{ selected=+tr.dataset.i; drawOverlay(); renderDetail(selected); highlightRow(); });
+  tb.querySelectorAll('tr').forEach(tr=>tr.onclick=()=>{ selected=+tr.dataset.i; drawOverlay(); highlightRow();
+    if(isMobile()){ setView('detail'); window.scrollTo({top:0,behavior:'smooth'}); } else renderDetail(selected); });
 }
 function highlightRow(){
   document.querySelectorAll('#tbody tr').forEach(tr=>tr.classList.toggle('sel',+tr.dataset.i===selected));
@@ -667,7 +786,7 @@ function renderRightEmpty(){
     </div>
     <div>
       <div class="minihd">How to read this atlas</div>
-      <div class="hint">Filter the catalogue on the left, then <b style="color:var(--cyan)">hover</b> any track on the map or pick a row from the register to inspect a single Western Disturbance — its full track, the time-evolution of intensity &amp; rainfall, and how it ranks against all ${META.ntracks.toLocaleString()} catalogued systems.</div>
+      <div class="hint">Filter the catalogue, then <b style="color:var(--cyan)">tap</b> any track on the map or pick a row from the register to inspect a single Western Disturbance — its full track, the time-evolution of intensity &amp; rainfall, and how it ranks against all ${META.ntracks.toLocaleString()} catalogued systems.</div>
     </div>
   </div>`;
   drawSeasonChart(months,monthsInt,maxM);
@@ -700,6 +819,7 @@ function drawYearChart(years){
 }
 
 function renderDetail(idx){
+  document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('has-sel', b.dataset.v==='detail'));
   const pts=trackPts(idx);
   const reg=C('dom',idx);
   const O=META.overall, MO=META.monthly[C('month',idx)];
@@ -749,7 +869,9 @@ function renderDetail(idx){
   drawCompare(idx,O,MO);
   drawRegionBars(regVals);
 }
-function clearSel(){ selected=-1; drawOverlay(); highlightRow(); renderRightEmpty(); }
+function clearSel(){ selected=-1; drawOverlay(); highlightRow(); renderRightEmpty();
+  document.querySelectorAll('.tabbtn').forEach(b=>b.classList.remove('has-sel'));
+  if(isMobile()) setView('explore'); }
 window.clearSel=clearSel;
 
 function drawLifeChart(pts){
