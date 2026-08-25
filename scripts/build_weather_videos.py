@@ -61,6 +61,34 @@ FIELD_SPECS = {
 			(100.0, (62, 0, 92)), (150.0, (46, 0, 72)),
 		),
 	},
+	"wind500": {
+		"source_dir": Path("/home/users/kieran/ncas/data/era5-incompass/3hourly_pl_SA"),
+		"schema": "western-disturbances-atlas-weather-v1", "label": "ERA5 500-hPa wind speed", "units": "m s-1", "step_hours": 3,
+		"crop": (30.0, 5.0, 110.0, 45.0), "coarsen": 4, "loader": "pressure", "variable": "wind_speed", "level": 500,
+		"positive_only": True, "alpha_full": 35.0, "alpha_threshold": 0.0,
+		"colour_stops": ((0.0, (247, 252, 253)), (10.0, (204, 236, 230)), (20.0, (102, 194, 164)), (30.0, (44, 127, 184)), (45.0, (84, 39, 143)), (65.0, (46, 0, 72))),
+	},
+	"temperature500": {
+		"source_dir": Path("/home/users/kieran/ncas/data/era5-incompass/3hourly_pl_SA"),
+		"schema": "western-disturbances-atlas-weather-v1", "label": "ERA5 500-hPa temperature", "units": "K", "step_hours": 3,
+		"crop": (30.0, 5.0, 110.0, 45.0), "coarsen": 4, "loader": "pressure", "variable": "t", "level": 500,
+		"positive_only": False, "alpha_full": 330.0, "alpha_threshold": 0.0,
+		"colour_stops": ((230.0, (49, 54, 149)), (245.0, (69, 117, 180)), (255.0, (247, 247, 247)), (265.0, (244, 109, 67)), (280.0, (103, 0, 31))),
+	},
+	"humidity500": {
+		"source_dir": Path("/home/users/kieran/ncas/data/era5-incompass/3hourly_pl_SA"),
+		"schema": "western-disturbances-atlas-weather-v1", "label": "ERA5 500-hPa specific humidity", "units": "g kg-1", "step_hours": 3,
+		"crop": (30.0, 5.0, 110.0, 45.0), "coarsen": 4, "loader": "pressure", "variable": "q_gkg", "level": 500,
+		"positive_only": True, "alpha_full": 3.0, "alpha_threshold": 0.02,
+		"colour_stops": ((0.0, (247, 252, 240)), (0.5, (224, 243, 219)), (1.0, (168, 221, 181)), (2.0, (67, 162, 202)), (3.5, (44, 127, 184)), (5.0, (8, 64, 129))),
+	},
+	"mslp": {
+		"source_dir": Path("/home/users/kieran/ncas/data/era5-incompass/hourly_sfc_SA"),
+		"schema": "western-disturbances-atlas-weather-v1", "label": "ERA5 mean-sea-level pressure", "units": "hPa", "step_hours": 1,
+		"crop": (30.0, 5.0, 110.0, 45.0), "coarsen": 4, "loader": "surface", "variable": "msl_hpa",
+		"positive_only": False, "alpha_full": 1350.0, "alpha_threshold": 0.0,
+		"colour_stops": ((970.0, (103, 0, 31)), (990.0, (214, 96, 77)), (1010.0, (247, 247, 247)), (1025.0, (69, 117, 180)), (1045.0, (49, 54, 149))),
+	},
 }
 
 
@@ -159,6 +187,32 @@ def precipitation(dataset: xr.Dataset) -> xr.DataArray:
 	return field.clip(min=0).astype("float32")
 
 
+def pressure_field(dataset: xr.Dataset, spec: dict) -> xr.DataArray:
+	level_name = next((key for key in ("level", "pressure_level", "isobaricInhPa") if key in dataset.coords or key in dataset.dims), None)
+	if level_name is None:
+		raise KeyError("Pressure-level weather field requires a pressure coordinate")
+	variable = spec["variable"]
+	if variable == "wind_speed":
+		field = np.hypot(dataset["u"], dataset["v"])
+	elif variable == "q_gkg":
+		field = dataset["q"] * np.float32(1000.0)
+	else:
+		field = dataset[variable]
+	field = field.sel({level_name: spec["level"]}, method="nearest")
+	time = time_name(field)
+	return field.rename({time: "time"}).astype("float32") if time != "time" else field.astype("float32")
+
+
+def surface_field(dataset: xr.Dataset, spec: dict) -> xr.DataArray:
+	variable = spec["variable"]
+	if variable == "msl_hpa":
+		field = dataset["msl"] / np.float32(100.0)
+	else:
+		field = dataset[variable]
+	time = time_name(field)
+	return field.rename({time: "time"}).astype("float32") if time != "time" else field.astype("float32")
+
+
 def crop_and_coarsen(field: xr.DataArray, spec: dict) -> tuple[xr.DataArray, list[float]]:
 	west, south, east, north = spec["crop"]
 	latitudes = np.asarray(field.latitude.values)
@@ -200,7 +254,7 @@ def load_field(source: Path, field_name: str, month: str) -> tuple[xr.DataArray,
 	sources = [source]
 	if field_name == "vorticity350":
 		field = vorticity350(datasets[0])
-	else:
+	elif field_name == "precipitation":
 		field = precipitation(datasets[0])
 		previous_month = (pd.Period(month, freq="M") - 1).strftime("%Y%m")
 		previous_source = source.parent / f"{previous_month}.nc"
@@ -213,6 +267,12 @@ def load_field(source: Path, field_name: str, month: str) -> tuple[xr.DataArray,
 		_, unique = np.unique(np.asarray(field.time.values), return_index=True)
 		field = field.isel(time=np.sort(unique))
 		sources.append(previous_source)
+	elif spec.get("loader") == "pressure":
+		field = pressure_field(datasets[0], spec)
+	elif spec.get("loader") == "surface":
+		field = surface_field(datasets[0], spec)
+	else:
+		raise ValueError(f"No loader configured for {field_name}")
 	field, bounds = crop_and_coarsen(field, spec)
 	if field_name == "precipitation":
 		field = field.rolling(time=24, min_periods=24).sum().sel(time=current_times)

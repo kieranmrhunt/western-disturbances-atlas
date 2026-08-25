@@ -1,0 +1,73 @@
+{
+  "schema": "western-disturbances-atlas-jet-diagnostics-v1",
+  "source": "/home/users/kieran/ncas/data/era5-incompass/daily-winds-200",
+  "definition": "Daily 200-hPa maximum wind speed and its latitude between 20 and 55\u00b0N, sampled at the WD longitude from 50 to 80\u00b0E",
+  "source_coverage_note": "Thirty-four catalogue fixes on 29-31 October 2023 are unavailable in the dedicated daily-wind source; other dates and fixes outside 50-80E are handled explicitly as available or out of domain.",
+  "built_utc": "2026-08-25T21:01:13.959652Z",
+  "diagnostics": [
+    {
+      "key": "jet_axis_latitude_200hpa",
+      "label": "200-hPa jet-axis latitude",
+      "shortLabel": "jet latitude",
+      "yLabel": "Jet-axis latitude (\u00b0N)",
+      "unit": " \u00b0N",
+      "decimals": 1,
+      "zeroBased": false,
+      "group": "Jet relationship",
+      "file": "assets/wd-atlas-diag-v6-jet_axis_latitude_200hpa.f32.gz",
+      "colour": "--mla-indigo",
+      "fallback": "#233f78",
+      "available_fixes": 249332,
+      "bytes": 265315,
+      "sha256": "74ec6c668eb6efba6ea3a856cbe0be02a2052cc9b72f8936905d297d07f765c7"
+    },
+    {
+      "key": "jet_axis_distance_200hpa",
+      "label": "Latitude relative to 200-hPa jet axis",
+      "shortLabel": "jet-relative latitude",
+      "yLabel": "Track latitude minus jet-axis latitude (\u00b0)",
+      "unit": "\u00b0",
+      "decimals": 1,
+      "zeroBased": false,
+      "group": "Jet relationship",
+      "file": "assets/wd-atlas-diag-v6-jet_axis_distance_200hpa.f32.gz",
+      "colour": "--mla-indigo",
+      "fallback": "#233f78",
+      "available_fixes": 249332,
+      "bytes": 667213,
+      "sha256": "c8209e4b2b2598913a9560c02b14e3a8e43fdf58c139615b3eab34848abf915d"
+    },
+    {
+      "key": "jet_axis_wind_speed_200hpa",
+      "label": "200-hPa jet-axis wind speed",
+      "shortLabel": "jet wind",
+      "yLabel": "Jet-axis wind speed (m s\u207b\u00b9)",
+      "unit": " m s\u207b\u00b9",
+      "decimals": 1,
+      "zeroBased": true,
+      "group": "Jet relationship",
+      "file": "assets/wd-atlas-diag-v6-jet_axis_wind_speed_200hpa.f32.gz",
+      "colour": "--mla-indigo",
+      "fallback": "#233f78",
+      "available_fixes": 249332,
+      "bytes": 831639,
+      "sha256": "37cc8933e21271432efbf7cf6122422ecc2b1bdad53104696fc836d4c3e5fcdb"
+    },
+    {
+      "key": "local_wind_speed_200hpa",
+      "label": "Local 200-hPa wind speed",
+      "shortLabel": "local 200-hPa wind",
+      "yLabel": "Local 200-hPa wind speed (m s\u207b\u00b9)",
+      "unit": " m s\u207b\u00b9",
+      "decimals": 1,
+      "zeroBased": true,
+      "group": "Jet relationship",
+      "file": "assets/wd-atlas-diag-v6-local_wind_speed_200hpa.f32.gz",
+      "colour": "--mla-indigo",
+      "fallback": "#233f78",
+      "available_fixes": 249332,
+      "bytes": 909814,
+      "sha256": "795a3ebdbaa7ba831c4315363276134aa667142444d0bea8f4afbec1f7ce757b"
+    }
+  ]
+}

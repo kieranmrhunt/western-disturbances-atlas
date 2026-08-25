@@ -209,6 +209,8 @@
 .mla-date-fields { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: end; }
 .mla-date-fields label { display: grid; gap: 2px; min-width: 0; color: var(--mla-muted); font-size: 10px; }
 .mla-date-fields input { min-width: 0; padding-inline: 6px; font-size: 12px; }
+.mla-inline-select { display: grid; grid-template-columns: auto minmax(180px, 1fr); align-items: center; gap: 8px; margin-top: 7px; color: var(--mla-muted); font-size: 11px; }
+.mla-inline-select .mla-select { min-height: 34px; padding-block: 5px; font-size: 12px; }
 .mla-filter-disclosures { border-top: 1px solid var(--mla-line); }
 .mla-filter-disclosure + .mla-filter-disclosure { border-top: 1px solid var(--mla-line); }
 .mla-filter-disclosure > summary {
@@ -254,6 +256,9 @@
 .mla-map-tools .mla-select { width: auto; min-height: 36px; padding: 6px 8px; font-size: 13px; }
 .mla-map-control { display: grid; gap: 2px; color: var(--mla-muted); font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
 .mla-map-control .mla-select { color: var(--mla-ink); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.mla-map-control .mla-control { width: 150px; min-height: 36px; padding: 6px 8px; color: var(--mla-ink); font-size: 13px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.wd-meridian-control { display: flex; align-items: center; gap: 4px; color: var(--mla-ink); font-size: 13px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.wd-meridian-control .mla-control { width: 74px; }
 .mla-map-toggle { display: inline-flex; align-items: center; gap: 5px; color: var(--mla-muted); font-size: 12px; white-space: nowrap; }
 .mla-map-toggle input { accent-color: var(--mla-indigo-deep); }
 .mla-map-nav-buttons { display: inline-flex; align-items: center; gap: 7px; flex-wrap: nowrap; white-space: nowrap; }
@@ -317,7 +322,10 @@
 .mla-weather-ramp[data-field="vorticity"],
 .mla-weather-ramp[data-field="vorticity350"] { background: linear-gradient(90deg, rgba(49, 54, 149, 0), #313695 8%, #4575b4 24%, #91bfdb 40%, #f7f7f7 55%, #d6604d 78%, #67001f); }
 .mla-weather-ramp[data-field="precipitation"] { background: linear-gradient(90deg, rgba(247, 252, 253, 0), #ccece6 10%, #66c2a4 30%, #238b45 52%, #225ea8 75%, #54278f); }
-.mla-weather-ramp[data-field="rh500"] { background: linear-gradient(90deg, rgba(246, 239, 247, .7), #d4b9da 20%, #9e9ac8 45%, #6a51a3 70%, #3f007d); }
+.mla-weather-ramp[data-field="wind500"] { background: linear-gradient(90deg, #f7fcfd, #ccece6 18%, #66c2a4 38%, #2c7fb8 62%, #54278f 82%, #2e0048); }
+.mla-weather-ramp[data-field="temperature500"] { background: linear-gradient(90deg, #313695, #4575b4 28%, #f7f7f7 50%, #f46d43 76%, #67001f); }
+.mla-weather-ramp[data-field="humidity500"] { background: linear-gradient(90deg, #f7fcf0, #e0f3db 15%, #a8ddb5 35%, #43a2ca 62%, #2c7fb8 78%, #084081); }
+.mla-weather-ramp[data-field="mslp"] { background: linear-gradient(90deg, #67001f, #d6604d 28%, #f7f7f7 52%, #4575b4 75%, #313695); }
 .wd-weather-status { flex-basis: 100%; min-height: 1.1em; color: var(--mla-muted); font-size: 11px; }
 .mla-map-foot { display: flex; gap: 10px 18px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 9px 12px; border-top: 1px solid var(--mla-line); color: var(--mla-muted); font-size: 12px; }
 .mla-legend { display: flex; gap: 7px 12px; align-items: center; flex-wrap: wrap; }
@@ -366,7 +374,23 @@
 .mla-chart-head .mla-field { width: min(230px, 48%); }
 .mla-chart-readout { min-height: 22px; margin: 7px 2px 0 !important; color: var(--mla-ink) !important; font-variant-numeric: tabular-nums; }
 .mla-chart { display: block; width: 100%; height: 300px; border: 1px solid var(--mla-line); border-radius: 10px; background: var(--mla-card-strong); }
+#wdLifeChart { cursor: ew-resize; touch-action: pan-y; }
 .mla-evolution-card { align-self: start; }
+.wd-variable-picker { display: flex; gap: 6px; align-items: end; }
+.wd-variable-picker .mla-field { width: min(230px, 100%); }
+.wd-chart-variable-chips { min-height: 34px; margin: 6px 0 8px; }
+.wd-chart-variable-chips .mla-chip { position: relative; padding-left: 25px; }
+.wd-chart-variable-chips .mla-chip::before { content: ""; position: absolute; left: 9px; top: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--wd-chip-colour, var(--mla-indigo)); transform: translateY(-50%); }
+.wd-chart-variable-chips .mla-chip::after { content: " ×"; color: var(--mla-faint); }
+.wd-profile-charts { display: grid; gap: 9px; }
+.wd-profile-panel { min-width: 0; }
+.wd-profile-panel h4 { margin: 0 3px 5px; color: var(--mla-ink); font-size: 13px; font-weight: 650; }
+.wd-profile-panel .mla-chart { height: 205px; }
+.wd-vertical-card { margin-top: 14px; }
+.wd-impact-card { margin-top: 14px; }
+.wd-vertical-chart { height: 330px !important; }
+.wd-impact-chart { width: min(100%, 1050px); height: clamp(350px, 40vw, 540px) !important; margin-inline: auto; }
+.wd-spell-chart { height: clamp(360px, 42vw, 560px) !important; }
 .mla-profile-controls { margin: 10px 0; padding: 9px 0; border-top: 1px solid var(--mla-line); border-bottom: 1px solid var(--mla-line); }
 .mla-profile-controls .mla-label { display: block; margin-bottom: 6px; }
 .mla-profile-stack { display: grid; gap: 8px; }
@@ -486,6 +510,8 @@
 	.mla-track-time-control span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 	.mla-chart-head { display: block; }
 	.mla-chart-head .mla-field { width: 100%; margin-top: 8px; }
+	.wd-variable-picker { align-items: end; margin-top: 8px; }
+	.wd-variable-picker .mla-field { margin-top: 0; }
 	.mla-genesis-chart { height: 360px !important; }
 	.mla-btn,
 	.mla-tab { min-height: 44px; }

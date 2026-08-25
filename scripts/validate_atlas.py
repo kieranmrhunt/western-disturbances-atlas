@@ -15,7 +15,13 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DYNAMIC_IDS = {"wdCloseDossier", "wdDossierDownload", "wdFitSelected"}
+DYNAMIC_IDS = {
+    "wdCloseDossier",
+    "wdDossierDownload",
+    "wdFitSelected",
+    "wdPreviousTrack",
+    "wdNextTrack",
+}
 
 
 class IdParser(HTMLParser):
@@ -46,6 +52,8 @@ def main() -> None:
     check(config.get("weatherBase"), "Weather base URL is not configured")
     check(config.get("catalogueVersion") == "WD v6", "Atlas is not labelled WD v6")
     check(config.get("times"), "Actual fix-time asset is not configured")
+    check(config.get("routes") and config.get("climate") and config.get("jet"), "Derived route, climate or jet asset is not configured")
+    check(config.get("impactBase"), "Impact-footprint archive is not configured")
     check(config.get("weatherSteps", {}).get("vorticity350") == 3, "350-hPa weather timing must be three-hourly")
     check('<option value="tracks">Individual tracks</option>' in html, "Individual tracks are not the first map-layer option")
     check('<option value="none">None: selected track only</option>' in html, "Selected-track-only map layer is missing")
@@ -53,6 +61,9 @@ def main() -> None:
     check('value="latitude">Latitude' not in html and 'value="longitude">Longitude' not in html, "Position should not be offered as an evolution variable")
     check('data-season="ndjfma"' in html and 'data-season="djfm"' in html, "WD season presets are missing")
     check('id="wdGenesisRegionChips"' in html, "Genesis-region controls are missing")
+    check('id="wdLysisRegionChips"' in html and 'id="wdRouteChips"' in html, "Lysis or route controls are missing")
+    check('id="wdJetPreset"' in html and 'id="wdVerticalChart"' in html, "Jet or vertical diagnostics are missing")
+    check('id="wdImpactChart"' in html and 'id="wdSpellChart"' in html, "Impact or sequence chart is missing")
     check("rainfall" not in html.lower(), "User-facing rainfall terminology remains in index.html")
     check("16,298" in html and "460,411" in html, "Static v6 counts are missing")
     check("10.5281/zenodo.18328597" in html, "Dataset concept DOI is missing")
@@ -112,6 +123,23 @@ def main() -> None:
     for descriptor in meta["diagnostics"]:
         payload = gzip.decompress((ROOT / descriptor["file"]).read_bytes())
         check(len(payload) == meta["npts"] * np.dtype("<f4").itemsize, f"Wrong diagnostic length: {descriptor['key']}")
+
+    with gzip.open(ROOT / config["routes"], "rt", encoding="utf-8") as stream:
+        routes = json.load(stream)
+    check(len(routes.get("assignment", [])) == meta["ntracks"], "Route assignments do not cover the catalogue")
+    check(len(routes.get("definitions", [])) == 8, "Expected eight route archetypes")
+    check(sum(item["count"] for item in routes["definitions"]) == meta["ntracks"], "Route counts do not reconcile")
+    with gzip.open(ROOT / config["climate"], "rt", encoding="utf-8") as stream:
+        climate = json.load(stream)
+    check(all(len(climate["values"][key]) == meta["ntracks"] for key in ("oni", "nao", "ao", "pna")), "Climate values do not cover the catalogue")
+    check(len(climate["mjo_phase"]) == meta["ntracks"], "MJO values do not cover the catalogue")
+    jet = json.loads((ROOT / config["jet"]).read_text(encoding="utf-8"))
+    check(len(jet.get("diagnostics", [])) == 4, "Expected four jet diagnostics")
+    for descriptor in jet["diagnostics"]:
+        path = ROOT / descriptor["file"]
+        payload = gzip.decompress(path.read_bytes())
+        check(len(payload) == meta["npts"] * np.dtype("<f4").itemsize, f"Wrong jet diagnostic length: {descriptor['key']}")
+        check(hashlib.sha256(path.read_bytes()).hexdigest() == descriptor["sha256"], f"Jet checksum mismatch: {descriptor['key']}")
     diagnostic_samples = [meta["diagnostics"][0], meta["diagnostics"][2], meta["diagnostics"][-1]]
     for descriptor in diagnostic_samples:
         source_values = pd.read_parquet(source, columns=[descriptor["field"]])[descriptor["field"]].to_numpy(dtype="<f4")

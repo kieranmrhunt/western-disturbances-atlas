@@ -428,6 +428,41 @@
       "bytes": 942084,
       "uncompressed_bytes": 1841644,
       "sha256": "91ce6bee763412ec80e3513629c469430f9e2606534197d7f7c1b775e43a8e53"
+    },
+    "route_archetypes": {
+      "file": "wd-atlas-routes-v1.json.gz",
+      "bytes": 9669,
+      "sha256": "e19ad889fe3b9667bf6299e249a4a1be324c85ba2a84c222f81d8f8af872447c"
+    },
+    "climate_indices": {
+      "file": "wd-atlas-climate-v1.json.gz",
+      "bytes": 34271,
+      "sha256": "8cbe07beed20c1e6d0bf9cec47165f0f46fa8fb1bcf55006d173e5a4e1a8dd66"
+    },
+    "jet_manifest": {
+      "file": "wd-atlas-jet-v1.json",
+      "bytes": 2905,
+      "sha256": "6331ea9dd7312e94931952f7375129f7cb3dc1fc69ae989e37189206faf3a3dc"
+    },
+    "diagnostic:jet_axis_latitude_200hpa": {
+      "file": "wd-atlas-diag-v6-jet_axis_latitude_200hpa.f32.gz",
+      "bytes": 265315,
+      "sha256": "74ec6c668eb6efba6ea3a856cbe0be02a2052cc9b72f8936905d297d07f765c7"
+    },
+    "diagnostic:jet_axis_distance_200hpa": {
+      "file": "wd-atlas-diag-v6-jet_axis_distance_200hpa.f32.gz",
+      "bytes": 667213,
+      "sha256": "c8209e4b2b2598913a9560c02b14e3a8e43fdf58c139615b3eab34848abf915d"
+    },
+    "diagnostic:jet_axis_wind_speed_200hpa": {
+      "file": "wd-atlas-diag-v6-jet_axis_wind_speed_200hpa.f32.gz",
+      "bytes": 831639,
+      "sha256": "37cc8933e21271432efbf7cf6122422ecc2b1bdad53104696fc836d4c3e5fcdb"
+    },
+    "diagnostic:local_wind_speed_200hpa": {
+      "file": "wd-atlas-diag-v6-local_wind_speed_200hpa.f32.gz",
+      "bytes": 909814,
+      "sha256": "795a3ebdbaa7ba831c4315363276134aa667142444d0bea8f4afbec1f7ce757b"
     }
   }
 }
