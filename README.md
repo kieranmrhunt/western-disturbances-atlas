@@ -1,4 +1,4 @@
-# Western Disturbances Atlas
+# Western Disturbance Atlas
 
 Static GitHub Pages atlas for the corrected ERA5-derived WD v6 catalogue: 16,298 western-disturbance trajectories and 460,411 three-hourly fixes from 1950–2025.
 
