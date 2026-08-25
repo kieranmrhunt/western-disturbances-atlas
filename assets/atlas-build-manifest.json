@@ -1,0 +1,22 @@
+{
+  "schema": "western-disturbances-atlas-split-assets-v1",
+  "source": "legacy single-file WD atlas deployment",
+  "source_sha256": "a56a7454da6d3650c1e8a5c21447c0958b7acd7243f5a09dbfebab1a4d5d79c2",
+  "assets": {
+    "catalogue": {
+      "file": "wd-atlas-catalogue-v5.json.gz",
+      "bytes": 703837,
+      "sha256": "0c10205e532b673e75820a4ff5625645ea7819e9dd19e5ba00ea17cb6f0a5df2"
+    },
+    "fixes": {
+      "file": "wd-atlas-fixes-v5.i16.gz",
+      "bytes": 2184802,
+      "sha256": "95e67ca2a3dfdcbb90661df923b49475059523933a90751f6df632f83f508850"
+    },
+    "map_context": {
+      "file": "map-context.js",
+      "bytes": 14651,
+      "sha256": "7aace26f3251b3276c3a37b69c30d99519e633c50113e0b98b9d14b87a9d4b8c"
+    }
+  }
+}
