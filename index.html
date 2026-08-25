@@ -172,7 +172,7 @@
 						<label class="mla-track-time-control" for="wdTrackFix"><span>Track time</span><input class="mla-time-slider" id="wdTrackFix" type="range" min="0" max="0" value="0" step="1"></label>
 						<button class="mla-btn mla-btn-small" id="wdNextFix" type="button" aria-label="Next track fix">Next</button>
 						<output id="wdFocusTime" aria-live="polite"></output>
-						<span class="mla-weather-key"><span>Track-centre ζ</span><span class="mla-weather-ramp" data-field="vorticity350" aria-hidden="true"></span><span id="wdFocusVort"></span></span>
+						<span class="mla-weather-key" id="wdTrackVorticityKey"><span>Track-centre ζ</span><span class="mla-weather-ramp" data-field="vorticity350" aria-hidden="true"></span><span id="wdFocusVort"></span></span>
 						<span class="mla-weather-key" id="wdWeatherKey" hidden><span id="wdWeatherKeyMin">0</span><span class="mla-weather-ramp" id="wdWeatherRamp" aria-hidden="true"></span><span id="wdWeatherKeyMax"></span></span>
 						<button class="mla-btn mla-btn-small" id="wdRetryWeather" type="button" hidden>Retry weather field</button>
 						<span class="wd-weather-status" id="wdWeatherStatus" role="status" aria-live="polite"></span>
@@ -235,6 +235,6 @@
 
 <script id="wd-data-config" type="application/json">{"catalogue":"assets/wd-atlas-catalogue-v6.json.gz","fixes":"assets/wd-atlas-fixes-v6.i16.gz","times":"assets/wd-atlas-times-v6.i32.gz","routes":"assets/wd-atlas-routes-v1.json.gz","climate":"assets/wd-atlas-climate-v1.json.gz","jet":"assets/wd-atlas-jet-v1.json","catalogueVersion":"WD v6","stepHours":3,"bounds":{"west":22,"east":109,"south":6,"north":54},"weatherBase":"https://gws-access.jasmin.ac.uk/public/incompass/kieran/track_data/WD/atlas-weather-v5-r1","impactBase":"https://gws-access.jasmin.ac.uk/public/incompass/kieran/track_data/WD/atlas-impact-v1","weatherFormat":"webm","weatherFps":6,"weatherSteps":{"vorticity350":3,"precipitation":1,"wind500":3,"temperature500":3,"humidity500":3,"mslp":1},"weatherBounds":{"vorticity350":[19.875,5.125,109.875,55.125],"precipitation":[49.875,-5.875,109.875,40.125],"wind500":[29.875,5.125,109.875,45.125],"temperature500":[29.875,5.125,109.875,45.125],"humidity500":[29.875,5.125,109.875,45.125],"mslp":[29.875,5.125,109.875,45.125]},"optionalWeatherFields":["wind500","temperature500","humidity500","mslp"]}</script>
 <script src="assets/map-context.js"></script>
-<script src="assets/atlas-app.js?v=32f06254703a"></script>
+<script src="assets/atlas-app.js?v=f204127154e0"></script>
 </body>
 </html>

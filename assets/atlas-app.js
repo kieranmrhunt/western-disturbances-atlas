@@ -1282,6 +1282,7 @@
 		const key = $("#wdWeatherKey");
 		const mapMessage = $("#wdWeatherMessage");
 		key.hidden = !definition;
+		$("#wdTrackVorticityKey").hidden = Boolean(definition);
 		$("#wdRetryWeather").hidden = !weatherError;
 		$("#wdWeatherLayer").value = state.weatherLayer;
 		if (definition) {
