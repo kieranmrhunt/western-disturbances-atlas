@@ -26,7 +26,7 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 - Deep-linkable filter, tab, map and selection state.
 - Individual tracks by default, plus unique-track density, genesis, lysis and selected-track-only layers; every data layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order. The selected trajectory is black.
 - Contemporaneous ERA5 overlays for three-hourly positive 350-hPa vorticity at 0.5° and hourly trailing 24 h precipitation at 1°.
-- Per-track dossiers, three-hourly time stepping, regional precipitation diagnostics and accessible lifecycle plots for stored vorticity, precipitation, position and trajectory-derived speed, cumulative path and displacement.
+- Per-track dossiers, three-hourly time stepping, regional precipitation diagnostics and accessible lifecycle plots for stored vorticity and precipitation plus trajectory-derived speed, cumulative path and displacement. Latitude and longitude remain available in fix exports and map readouts rather than as lifecycle variables.
 - Filter-aware annual, seasonal, impact-region and genesis-density climatologies.
 - Filter-aware catalogue extremes.
 - Summary CSV, track GeoJSON, reproducibility JSON and selected-fix CSV exports.

@@ -42,8 +42,6 @@
 	const EVOLUTION_METRICS = Object.freeze({
 		vorticity: { label: "450–300 hPa vorticity", shortLabel: "ζ", yLabel: "450–300 hPa ζ (10⁻⁵ s⁻¹)", unit: " ×10⁻⁵ s⁻¹", decimals: 1, zeroBased: true, colour: "--mla-madder", fallback: "#aa3d2d" },
 		rain: { label: "24 h precipitation", shortLabel: "precipitation", yLabel: "24 h precipitation (mm)", unit: " mm", decimals: 2, zeroBased: true, colour: "--mla-atlas-blue", fallback: "#3978a8" },
-		latitude: { label: "latitude", shortLabel: "latitude", yLabel: "Latitude (°N)", unit: "°N", decimals: 2, zeroBased: false, colour: "--mla-peacock", fallback: "#08736f" },
-		longitude: { label: "longitude", shortLabel: "longitude", yLabel: "Longitude (°E)", unit: "°E", decimals: 2, zeroBased: false, colour: "--mla-indigo", fallback: "#233f78" },
 		speed: { label: "translation speed", shortLabel: "speed", yLabel: "Translation speed (m s⁻¹)", unit: " m s⁻¹", decimals: 1, zeroBased: true, colour: "--mla-turmeric", fallback: "#c3931d" },
 		path: { label: "cumulative path length", shortLabel: "path", yLabel: "Cumulative path length (km)", unit: " km", decimals: 0, zeroBased: true, colour: "--mla-good", fallback: "#5c7d43" },
 		displacement: { label: "displacement from genesis", shortLabel: "displacement", yLabel: "Displacement from genesis (km)", unit: " km", decimals: 0, zeroBased: true, colour: "--mla-purple", fallback: "#76558f" }
@@ -304,18 +302,8 @@
 			syncControlsFromState();
 			applyFilters();
 		});
-		$("#wdDateMin").addEventListener("change", (event) => {
-			state.dateMin = event.target.value || DEFAULT_DATE_MIN;
-			if (state.dateMin > state.dateMax) state.dateMax = state.dateMin;
-			syncControlsFromState();
-			applyFilters();
-		});
-		$("#wdDateMax").addEventListener("change", (event) => {
-			state.dateMax = event.target.value || DEFAULT_DATE_MAX;
-			if (state.dateMax < state.dateMin) state.dateMin = state.dateMax;
-			syncControlsFromState();
-			applyFilters();
-		});
+		bindDateInput("#wdDateMin", "dateMin");
+		bindDateInput("#wdDateMax", "dateMax");
 		for (const [id, key] of [["#wdLengthMin", "lengthMin"], ["#wdDurationMin", "durationMin"]]) {
 			$(id).addEventListener("change", (event) => {
 				state[key] = Number(event.target.value) || 0;
@@ -433,6 +421,38 @@
 		filterTimer = window.setTimeout(() => applyFilters(), 90);
 	}
 
+	function bindDateInput(selector, key) {
+		const input = $(selector);
+		const commit = () => commitDateInput(input, key);
+		input.addEventListener("change", commit);
+		input.addEventListener("blur", () => {
+			if (!commit()) input.value = state[key];
+		});
+		input.addEventListener("keydown", (event) => {
+			if (event.key !== "Enter") return;
+			event.preventDefault();
+			if (commit()) input.blur();
+		});
+	}
+
+	function commitDateInput(input, key) {
+		const value = input.value;
+		// Native date controls temporarily expose an empty value while individual
+		// day/month/year segments are being typed. Preserve that partial edit.
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+		const previousMinimum = state.dateMin;
+		const previousMaximum = state.dateMax;
+		state[key] = value;
+		if (state.dateMin > state.dateMax) {
+			if (key === "dateMin") state.dateMax = state.dateMin;
+			else state.dateMin = state.dateMax;
+		}
+		if (state.dateMin === previousMinimum && state.dateMax === previousMaximum) return true;
+		syncControlsFromState();
+		applyFilters();
+		return true;
+	}
+
 	function setTimeMode(mode) {
 		if (mode === state.timeMode) return;
 		if (mode === "dates") {
@@ -474,8 +494,10 @@
 		$("#wdTimeModeDates").setAttribute("aria-pressed", String(state.timeMode === "dates"));
 		$("#wdYearMin").value = state.yearMin;
 		$("#wdYearMax").value = state.yearMax;
-		$("#wdDateMin").value = state.dateMin;
-		$("#wdDateMax").value = state.dateMax;
+		const dateMinInput = $("#wdDateMin");
+		const dateMaxInput = $("#wdDateMax");
+		if (document.activeElement !== dateMinInput) dateMinInput.value = state.dateMin;
+		if (document.activeElement !== dateMaxInput) dateMaxInput.value = state.dateMax;
 		$("#wdIntensityMin").value = state.intensityMin;
 		$("#wdIntensityOutput").textContent = `P${state.intensityMin}+`;
 		$("#wdRainMin").value = state.rainMin;
