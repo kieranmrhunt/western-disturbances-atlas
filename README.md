@@ -11,10 +11,10 @@ The interface shares the visual language and main workflow of the [Monsoon Low-P
 - Intensity is track-centred relative vorticity averaged through the 450–300 hPa layer, spectrally truncated to T42, in 10⁻⁵ s⁻¹. This is the upper-tropospheric WD diagnostic; the site does not substitute 850-hPa LPS vorticity.
 - Precipitation is the catalogue's track-centred or regional 24 h diagnostic in mm.
 - Vorticity, precipitation and path-length percentiles are fixed against the complete 16,850-track snapshot. Filtering does not rescale them.
-- Density counts each trajectory once per one-degree grid cell.
+- Density counts each trajectory once per one-degree grid cell. Density remains selectable through a geographical segment index built from the underlying trajectories.
 - The five rainfall-impact boxes are transparent analysis regions, not administrative boundaries. “Dominant” is the box with the largest peak 24 h precipitation for a trajectory.
 - ERA5-derived catalogue extremes are internal diagnostics, not authoritative meteorological records.
-- The selected-track time control follows catalogue fixes and their 450–300 hPa vorticity. It is not a gridded synoptic weather reconstruction.
+- The selected-track time control follows catalogue fixes and their 450–300 hPa vorticity. Independent gridded ERA5 backgrounds provide 350-hPa vorticity and trailing 24 h precipitation at the same valid time.
 
 The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSISO filters, cyclone names and Indian-state rainfall fills.
 
@@ -22,7 +22,8 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 
 - Shared global filters for genesis date, months, upper-level vorticity percentile, precipitation percentile, path length, duration and dominant impact region.
 - Deep-linkable filter, tab, map and selection state.
-- Unique-track density, individual tracks, genesis and lysis map layers; map pan, zoom, subset fit and multiple colour schemes.
+- Individual tracks by default, plus unique-track density, genesis and lysis layers; every layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order.
+- Contemporaneous ERA5 overlays for three-hourly positive 350-hPa vorticity at 0.5° and hourly trailing 24 h precipitation at 1°.
 - Per-track dossiers, three-hourly time stepping, regional rainfall diagnostics and accessible lifecycle values.
 - Filter-aware annual, seasonal, impact-region and genesis-density climatologies.
 - Filter-aware catalogue extremes.
@@ -31,7 +32,7 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 
 ## Deployment
 
-Deploy `index.html` and `assets/` together. No server-side component or build step is required for the current checked-in assets.
+Deploy `index.html` and `assets/` together. The catalogue application remains static; monthly weather videos are fetched from the public JASMIN GWS configured in `wd-data-config`.
 
 For local development, serve the repository over HTTP because browsers do not allow `fetch()` of local gzip assets from a `file://` page:
 
@@ -51,6 +52,39 @@ Then open `http://localhost:8000/`.
 - `assets/atlas-app.js`: dependency-free atlas application.
 
 Modern browsers decompress the two gzip assets with `DecompressionStream`.
+
+## Weather archive
+
+`data/wd-weather-months.csv` lists every catalogue month from January 1950 through December 2025. Build a single smoke-test month with:
+
+```bash
+python scripts/build_weather_videos.py \
+  --field vorticity350 \
+  --month 201712 \
+  --output-dir /home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1
+```
+
+The Slurm array renders the complete archive:
+
+```bash
+mkdir -p hpc-logs
+sbatch scripts/build_weather_videos.slurm \
+  data/wd-weather-months.csv \
+  /home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1 \
+  vorticity350
+```
+
+After the array completes, validate every month and write the public manifest:
+
+```bash
+python scripts/build_weather_videos.py \
+  --field vorticity350 \
+  --month-manifest data/wd-weather-months.csv \
+  --output-dir /home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1 \
+  --finalize
+```
+
+Each WebM frame stores colour in its left half and an opacity mask as right-half luma. The frontend reconstructs RGBA in a canvas. Vorticity uses one frame per ERA5 three-hourly analysis; precipitation uses one frame per hour.
 
 ## Rebuilding the split assets
 

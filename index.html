@@ -116,14 +116,16 @@
 					<div class="mla-map-head">
 						<h3 id="wdMapHeading">Tracks and density</h3>
 						<div class="mla-map-tools">
-							<label class="mla-map-control" for="wdMapLayer"><span>Layer</span><select class="mla-select" id="wdMapLayer"><option value="auto">Auto: density then tracks</option><option value="density">Unique-track density</option><option value="tracks">Individual tracks</option><option value="genesis">Genesis locations</option><option value="lysis">Lysis locations</option></select></label>
+							<label class="mla-map-control" for="wdMapLayer"><span>Layer</span><select class="mla-select" id="wdMapLayer"><option value="tracks">Individual tracks</option><option value="density">Unique-track density</option><option value="genesis">Genesis locations</option><option value="lysis">Lysis locations</option><option value="auto">Auto: density then tracks</option></select></label>
 							<label class="mla-map-control" for="wdMapColour"><span>Colour</span><select class="mla-select" id="wdMapColour"><option value="single">Single atlas blue</option><option value="intensity">Peak vorticity percentile</option><option value="region">Dominant rain region</option><option value="year">Genesis year</option></select></label>
+							<label class="mla-map-control" for="wdWeatherLayer"><span>Weather</span><select class="mla-select" id="wdWeatherLayer"><option value="none">No weather field</option><option value="vorticity350">Positive 350-hPa vorticity</option><option value="precipitation">Trailing 24 h precipitation</option></select></label>
 							<label class="mla-map-toggle" for="wdRegionBoxes"><input id="wdRegionBoxes" type="checkbox" checked> Impact boxes</label>
 							<div class="mla-map-nav-buttons" role="group" aria-label="Map view controls"><button class="mla-btn mla-btn-icon mla-btn-small" id="wdZoomOut" type="button" aria-label="Zoom out">−</button><button class="mla-btn mla-btn-small" id="wdZoomReset" type="button">Reset view</button><button class="mla-btn mla-btn-small" id="wdFitSubset" type="button">Fit subset</button><button class="mla-btn mla-btn-icon mla-btn-small" id="wdZoomIn" type="button" aria-label="Zoom in">+</button></div>
 						</div>
 					</div>
 					<div class="mla-map-stack" id="wdMapStack">
 						<canvas class="mla-map-layer" id="wdMapBase" aria-hidden="true"></canvas>
+						<canvas class="mla-map-layer" id="wdMapWeather" aria-hidden="true"></canvas>
 						<canvas class="mla-map-layer" id="wdMapData" aria-hidden="true"></canvas>
 						<canvas class="mla-map-layer" id="mlaMapOverlay" role="img" aria-describedby="wdMapDescription">Interactive map of filtered western-disturbance tracks. Use the systems table for a keyboard-accessible alternative.</canvas>
 						<div class="mla-map-tip" id="wdMapTip" role="tooltip"></div>
@@ -133,10 +135,13 @@
 						<label class="mla-track-time-control" for="wdTrackFix"><span>Track time</span><input class="mla-time-slider" id="wdTrackFix" type="range" min="0" max="0" value="0" step="1"></label>
 						<button class="mla-btn mla-btn-small" id="wdNextFix" type="button" aria-label="Next three-hourly fix">+3 h</button>
 						<output id="wdFocusTime" aria-live="polite"></output>
-						<span class="mla-weather-key"><span>450–300 hPa ζ</span><span class="mla-weather-ramp" data-field="vorticity" aria-hidden="true"></span><span id="wdFocusVort"></span></span>
+						<span class="mla-weather-key"><span>Track-centre ζ</span><span class="mla-weather-ramp" data-field="vorticity350" aria-hidden="true"></span><span id="wdFocusVort"></span></span>
+						<span class="mla-weather-key" id="wdWeatherKey" hidden><span id="wdWeatherKeyMin">0</span><span class="mla-weather-ramp" id="wdWeatherRamp" aria-hidden="true"></span><span id="wdWeatherKeyMax"></span></span>
+						<button class="mla-btn mla-btn-small" id="wdRetryWeather" type="button" hidden>Retry weather field</button>
+						<span class="wd-weather-status" id="wdWeatherStatus" role="status" aria-live="polite"></span>
 					</div>
-					<p class="mla-sr-only" id="wdMapDescription">Density counts each trajectory at most once per one-degree grid cell. Open a disturbance dossier to step through its track-centred 450–300 hPa layer-mean relative vorticity.</p>
-					<div class="mla-map-foot"><span class="mla-legend" id="wdMapLegend"></span><span>Natural Earth coastlines and national borders · boxes are transparent analysis regions</span></div>
+					<p class="mla-sr-only" id="wdMapDescription">Every map layer is selectable: clicking near a line or density cell chooses the geometrically nearest filtered trajectory. Open a disturbance dossier to step through its track-centred diagnostics and contemporaneous ERA5 weather.</p>
+					<div class="mla-map-foot"><span class="mla-legend" id="wdMapLegend"></span><span>Click near any track, including on density · Natural Earth boundaries</span></div>
 				</section>
 				<aside class="mla-card mla-dossier" id="wdDossier" aria-live="polite"><p class="mla-dossier-empty">Select a track on the map or from a table to open its dossier.</p></aside>
 			</div>
@@ -177,7 +182,7 @@
 			<div class="mla-method-grid">
 				<section class="mla-card mla-prose"><h3>Catalogue</h3><p><strong>WD v5 atlas snapshot</strong> contains <span id="wdMethodTracks">16,850</span> trajectories and <span id="wdMethodFixes">398,584</span> three-hourly track fixes from January 1950 through December 2025.</p><h4>Scope</h4><p>Positions and diagnostics are derived from ERA5. The atlas is a research catalogue, not an operational warning service or an official best track.</p><h4>Event identity</h4><p><code>track_id</code> identifies one Lagrangian trajectory. Genesis is its first published fix and lysis its last.</p></section>
 				<section class="mla-card mla-prose"><h3>WD-specific physics</h3><ul><li><strong>Upper-tropospheric vorticity:</strong> track-centred relative vorticity averaged through the 450–300 hPa layer and spectrally truncated to T42, reported in 10⁻⁵ s⁻¹.</li><li><strong>24 h precipitation:</strong> track-centred and regional accumulated precipitation, reported in mm.</li><li><strong>Path length:</strong> great-circle distance summed between consecutive three-hourly fixes.</li><li><strong>Percentiles:</strong> fixed against all 16,850 catalogue trajectories; filters do not rescale them.</li></ul><p>The atlas intentionally omits LPS-specific pressure-deficit classes, IBTrACS matching, BSISO filters and Indian-state rainfall fills.</p></section>
-				<section class="mla-card mla-prose"><h3>Impact regions</h3><p>The five boxes are Karakoram (74–78°E, 35–37.5°N), Hindu Kush (68–73°E, 34–37°N), Western Himalaya (73–79°E, 30–34°N), Central Himalaya (79–86°E, 27–30.5°N), and north India (74–85°E, 25–30°N).</p><p>“Dominant” identifies the box with the largest peak 24 h precipitation for that trajectory. Boxes overlap and are transparent analytical conventions, not administrative boundaries.</p><h4>Map conventions</h4><p>Density counts each track at most once per one-degree cell. The time slider follows the selected track’s three-hourly centres and vorticity; it is not a gridded synoptic weather reconstruction.</p></section>
+				<section class="mla-card mla-prose"><h3>Impact regions</h3><p>The five boxes are Karakoram (74–78°E, 35–37.5°N), Hindu Kush (68–73°E, 34–37°N), Western Himalaya (73–79°E, 30–34°N), Central Himalaya (79–86°E, 27–30.5°N), and north India (74–85°E, 25–30°N).</p><p>“Dominant” identifies the box with the largest peak 24 h precipitation for that trajectory. Boxes overlap and are transparent analytical conventions, not administrative boundaries.</p><h4>Map and weather fields</h4><p>Density counts each track at most once per one-degree cell, but remains selectable through the underlying trajectories. The time slider follows the selected track’s three-hourly centres. Weather backgrounds are independent ERA5 context fields: 350-hPa relative vorticity at 0.5° and trailing 24 h precipitation at 1°. They do not replace the track-centred catalogue diagnostics.</p></section>
 				<section class="mla-card mla-prose"><h3>Download and provenance</h3><p>Exports carry the current filter state, units and WD track identifiers.</p><div class="mla-download-grid"><button class="mla-btn" id="wdDownloadSummaries" type="button">Filtered summaries CSV</button><button class="mla-btn" id="wdDownloadGeojson" type="button">Filtered tracks GeoJSON</button><button class="mla-btn" id="wdDownloadQuery" type="button">Reproducibility JSON</button><button class="mla-btn" id="wdDownloadFixes" type="button">Selected fixes CSV</button></div><h4>Release record</h4><p><a href="https://doi.org/10.5281/zenodo.8208019" target="_blank" rel="noopener">Archived 1950–2022 track release</a> · <a href="assets/atlas-build-manifest.json">split-asset checksums</a> · <a href="https://wcd.copernicus.org/articles/5/345/2024/" target="_blank" rel="noopener">WD climatology and jet-context paper</a></p><h4>Build</h4><p id="wdBuildText">This static deployment loads split gzip assets in the browser; no catalogue rows are sent to a server.</p></section>
 			</div>
 		</section>
@@ -186,7 +191,7 @@
 	</main>
 </div>
 
-<script id="wd-data-config" type="application/json">{"catalogue":"assets/wd-atlas-catalogue-v5.json.gz","fixes":"assets/wd-atlas-fixes-v5.i16.gz","catalogueVersion":"WD v5 atlas snapshot","stepHours":3,"bounds":{"west":22,"east":109,"south":6,"north":54}}</script>
+<script id="wd-data-config" type="application/json">{"catalogue":"assets/wd-atlas-catalogue-v5.json.gz","fixes":"assets/wd-atlas-fixes-v5.i16.gz","catalogueVersion":"WD v5 atlas snapshot","stepHours":3,"bounds":{"west":22,"east":109,"south":6,"north":54},"weatherBase":"https://gws-access.jasmin.ac.uk/public/incompass/kieran/track_data/WD/atlas-weather-v5-r1","weatherBases":{"precipitation":"https://gws-access.jasmin.ac.uk/public/incompass/kieran/track_data/LPS/atlas-weather-v5.4.2-r3"},"weatherFormat":"webm","weatherFps":6,"weatherSteps":{"vorticity350":3,"precipitation":1},"weatherBounds":{"vorticity350":[19.875,5.125,109.875,55.125],"precipitation":[49.875,-5.875,109.875,40.125]}}</script>
 <script src="assets/map-context.js"></script>
 <script src="assets/atlas-app.js"></script>
 </body>

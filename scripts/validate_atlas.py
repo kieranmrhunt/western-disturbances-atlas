@@ -41,6 +41,9 @@ def main() -> None:
     )
     check(config_match is not None, "index.html has no WD data configuration")
     config = json.loads(config_match.group(1))
+    check(config.get("weatherBase"), "Weather base URL is not configured")
+    check(config.get("weatherSteps", {}).get("vorticity350") == 3, "350-hPa weather timing must be three-hourly")
+    check('<option value="tracks">Individual tracks</option>' in html, "Individual tracks are not the first map-layer option")
 
     manifest_path = ROOT / "assets" / "atlas-build-manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -67,6 +70,10 @@ def main() -> None:
     check(offsets[0][0] == 0, "First track does not start at fix zero")
     check(offsets[-1][0] + offsets[-1][1] == meta["npts"], "Track offsets do not cover the fix payload")
     check(min(cat["year"]) == 1950 and max(cat["year"]) == 2025, "Unexpected catalogue coverage")
+
+    weather_months = (ROOT / "data" / "wd-weather-months.csv").read_text(encoding="utf-8").splitlines()
+    check(len(weather_months) == 913, "Weather manifest must contain a header and 912 months")
+    check(weather_months[1] == "195001" and weather_months[-1] == "202512", "Unexpected weather-manifest coverage")
 
     app = (ROOT / "assets" / "atlas-app.js").read_text(encoding="utf-8")
     referenced_ids = set(re.findall(r'\$\("#([A-Za-z][\w-]*)"\)', app))

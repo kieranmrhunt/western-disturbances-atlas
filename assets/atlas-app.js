@@ -19,7 +19,12 @@
 	};
 	const DEFAULT_VIEW = { ...CONFIG.bounds };
 	const TABLE_PAGE_SIZE = 50;
-	const MAP_TRACK_LIMIT = 6500;
+	const MAP_TRACK_LIMIT = 20000;
+	const HOUR_MS = 3600000;
+	const WEATHER_FIELDS = Object.freeze({
+		vorticity350: { label: "350-hPa vorticity", keyMin: "0", keyMax: "28 × 10⁻⁵ s⁻¹" },
+		precipitation: { label: "trailing 24 h precipitation", keyMin: "0", keyMax: "150 mm" }
+	});
 
 	let DATA;
 	let CAT;
@@ -39,6 +44,19 @@
 	let toastTimer = 0;
 	let activeTab = "explore";
 	let idToIndex = new Map();
+	let filteredBit;
+	let segmentIndex;
+	let weatherVideo = null;
+	let weatherMonth = "";
+	let weatherField = "";
+	let weatherLoadSerial = 0;
+	let weatherSyncSerial = 0;
+	let weatherError = "";
+	let weatherLoading = false;
+	let weatherFrameCanvas = null;
+	let weatherFrameContext = null;
+	let weatherEncodedCanvas = null;
+	let weatherEncodedContext = null;
 
 	const state = {
 		months: new Set(SEASONS.djfm),
@@ -50,20 +68,21 @@
 		lengthMin: 0,
 		durationMin: 0,
 		query: "",
-		mapLayer: "auto",
+		mapLayer: "tracks",
 		mapColour: "single",
-		showRegionBoxes: true
+		showRegionBoxes: true,
+		weatherLayer: "none"
 	};
 
 	const map = {
 		base: null,
+		weather: null,
 		data: null,
 		overlay: null,
 		baseContext: null,
+		weatherContext: null,
 		dataContext: null,
 		overlayContext: null,
-		pick: document.createElement("canvas"),
-		pickContext: null,
 		width: 1,
 		height: 1,
 		dpr: 1,
@@ -99,6 +118,8 @@
 		PVORT = fixes.subarray(META.npts * 2, META.npts * 3);
 		PRAIN = fixes.subarray(META.npts * 3, META.npts * 4);
 		for (let i = 0; i < META.ntracks; i += 1) idToIndex.set(String(CAT.id[i]), i);
+		filteredBit = new Uint8Array(META.ntracks);
+		segmentIndex = new UniformSegmentIndex();
 
 		state.yearMin = Math.min(...CAT.year);
 		state.yearMax = Math.max(...CAT.year);
@@ -126,6 +147,88 @@
 		}
 		const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip"));
 		return new Response(stream).arrayBuffer();
+	}
+
+	function pointSegmentDistanceSquared(px, py, x1, y1, x2, y2) {
+		const dx = x2 - x1;
+		const dy = y2 - y1;
+		const lengthSquared = dx * dx + dy * dy;
+		if (!lengthSquared) return (px - x1) ** 2 + (py - y1) ** 2;
+		const fraction = clamp(((px - x1) * dx + (py - y1) * dy) / lengthSquared, 0, 1);
+		const x = x1 + fraction * dx;
+		const y = y1 + fraction * dy;
+		return (px - x) ** 2 + (py - y) ** 2;
+	}
+
+	class UniformSegmentIndex {
+		constructor() {
+			this.cellSize = 1;
+			this.minLon = -20;
+			this.maxLon = 145;
+			this.minLat = -10;
+			this.maxLat = 75;
+			this.columns = Math.ceil((this.maxLon - this.minLon) / this.cellSize) + 1;
+			this.rows = Math.ceil((this.maxLat - this.minLat) / this.cellSize) + 1;
+			this.cells = Array.from({ length: this.columns * this.rows }, () => []);
+			const x1 = [], y1 = [], x2 = [], y2 = [], owner = [];
+			for (let track = 0; track < OFF.length; track += 1) {
+				const [start, length] = OFF[track];
+				for (let fix = 1; fix < length; fix += 1) {
+					const first = start + fix - 1;
+					const second = first + 1;
+					const segment = owner.length;
+					x1.push(PLON[first] / 100); y1.push(PLAT[first] / 100);
+					x2.push(PLON[second] / 100); y2.push(PLAT[second] / 100);
+					owner.push(track);
+					const a = this.cellCoordinates(Math.min(x1[segment], x2[segment]), Math.min(y1[segment], y2[segment]));
+					const b = this.cellCoordinates(Math.max(x1[segment], x2[segment]), Math.max(y1[segment], y2[segment]));
+					for (let row = a.row; row <= b.row; row += 1) {
+						for (let col = a.col; col <= b.col; col += 1) this.cells[row * this.columns + col].push(segment);
+					}
+				}
+			}
+			this.x1 = Float32Array.from(x1); this.y1 = Float32Array.from(y1);
+			this.x2 = Float32Array.from(x2); this.y2 = Float32Array.from(y2);
+			this.owner = Uint32Array.from(owner);
+			this.seen = new Uint32Array(owner.length);
+			this.stamp = 0;
+		}
+
+		cellCoordinates(lon, lat) {
+			return {
+				col: clamp(Math.floor((lon - this.minLon) / this.cellSize), 0, this.columns - 1),
+				row: clamp(Math.floor((lat - this.minLat) / this.cellSize), 0, this.rows - 1)
+			};
+		}
+
+		query(screenX, screenY, radiusPx) {
+			const geographical = screenToLonLat(screenX, screenY);
+			const radiusLon = radiusPx / map.width * (map.view.east - map.view.west);
+			const radiusLat = radiusPx / map.height * (map.view.north - map.view.south);
+			const a = this.cellCoordinates(geographical.lon - radiusLon, geographical.lat - radiusLat);
+			const b = this.cellCoordinates(geographical.lon + radiusLon, geographical.lat + radiusLat);
+			let bestTrack = -1;
+			let bestDistance = radiusPx ** 2;
+			this.stamp = (this.stamp + 1) >>> 0;
+			if (!this.stamp) { this.seen.fill(0); this.stamp = 1; }
+			for (let row = a.row; row <= b.row; row += 1) {
+				for (let col = a.col; col <= b.col; col += 1) {
+					for (const segment of this.cells[row * this.columns + col]) {
+						if (this.seen[segment] === this.stamp) continue;
+						this.seen[segment] = this.stamp;
+						const track = this.owner[segment];
+						if (!filteredBit[track]) continue;
+						const distance = pointSegmentDistanceSquared(
+							screenX, screenY,
+							projectX(this.x1[segment]), projectY(this.y1[segment]),
+							projectX(this.x2[segment]), projectY(this.y2[segment])
+						);
+						if (distance < bestDistance) { bestDistance = distance; bestTrack = track; }
+					}
+				}
+			}
+			return bestTrack;
+		}
 	}
 
 	function buildFilterControls() {
@@ -211,6 +314,17 @@
 			drawMap();
 			scheduleUrlUpdate();
 		});
+		$("#wdWeatherLayer").addEventListener("change", (event) => {
+			state.weatherLayer = event.target.value;
+			weatherError = "";
+			weatherLoadSerial += 1;
+			weatherMonth = "";
+			weatherField = "";
+			updateWeatherControls();
+			if (state.weatherLayer === "none") drawMapWeather();
+			else syncWeatherToFocus();
+			scheduleUrlUpdate();
+		});
 		$("#wdRegionBoxes").addEventListener("change", (event) => {
 			state.showRegionBoxes = event.target.checked;
 			drawMap();
@@ -224,6 +338,12 @@
 		$("#wdPreviousFix").addEventListener("click", () => setFocusFix(focusFix - 1));
 		$("#wdNextFix").addEventListener("click", () => setFocusFix(focusFix + 1));
 		$("#wdTrackFix").addEventListener("input", (event) => setFocusFix(Number(event.target.value)));
+		$("#wdRetryWeather").addEventListener("click", () => {
+			weatherError = "";
+			weatherMonth = "";
+			weatherField = "";
+			syncWeatherToFocus();
+		});
 		$("#wdEvolutionMetric").addEventListener("change", drawLifeChart);
 		$("#wdProfileMetric").addEventListener("change", drawProfileChart);
 		$("#wdTableSort").addEventListener("change", () => { tablePage = 0; renderTable(); });
@@ -271,7 +391,9 @@
 		$("#wdDurationMin").value = state.durationMin;
 		$("#wdMapLayer").value = state.mapLayer;
 		$("#wdMapColour").value = state.mapColour;
+		$("#wdWeatherLayer").value = state.weatherLayer;
 		$("#wdRegionBoxes").checked = state.showRegionBoxes;
+		updateWeatherControls();
 		syncMonthChips();
 		syncRegionChips();
 		syncSeasonSelect();
@@ -328,6 +450,8 @@
 			next.push(i);
 		}
 		filtered = next;
+		filteredBit.fill(0);
+		for (const index of filtered) filteredBit[index] = 1;
 		if (options.resetPage !== false) tablePage = 0;
 		updateFilterSummary();
 		updateStats();
@@ -412,12 +536,13 @@
 
 	function setupMap() {
 		map.base = $("#wdMapBase");
+		map.weather = $("#wdMapWeather");
 		map.data = $("#wdMapData");
 		map.overlay = $("#mlaMapOverlay");
 		map.baseContext = map.base.getContext("2d");
+		map.weatherContext = map.weather.getContext("2d");
 		map.dataContext = map.data.getContext("2d");
 		map.overlayContext = map.overlay.getContext("2d");
-		map.pickContext = map.pick.getContext("2d", { willReadFrequently: true });
 
 		map.overlay.addEventListener("pointerdown", (event) => {
 			map.drag = { x: event.clientX, y: event.clientY, view: { ...map.view }, pointerId: event.pointerId };
@@ -474,21 +599,20 @@
 		map.width = rect.width;
 		map.height = rect.height;
 		map.dpr = Math.min(window.devicePixelRatio || 1, window.matchMedia("(max-width:760px)").matches ? 1.5 : 2);
-		for (const canvas of [map.base, map.data, map.overlay]) {
+		for (const canvas of [map.base, map.weather, map.data, map.overlay]) {
 			canvas.width = Math.round(map.width * map.dpr);
 			canvas.height = Math.round(map.height * map.dpr);
 		}
-		for (const context of [map.baseContext, map.dataContext, map.overlayContext]) {
+		for (const context of [map.baseContext, map.weatherContext, map.dataContext, map.overlayContext]) {
 			context.setTransform(map.dpr, 0, 0, map.dpr, 0, 0);
 		}
-		map.pick.width = Math.round(map.width);
-		map.pick.height = Math.round(map.height);
 		return true;
 	}
 
 	function drawMap() {
 		if (!map.base || map.width < 2) return;
 		drawMapBase();
+		drawMapWeather();
 		drawMapData();
 		drawMapOverlay();
 	}
@@ -518,6 +642,208 @@
 		drawContextLines(context, window.WD_COAST_LINES || [], "rgba(53, 70, 62, .60)", 1.15);
 		drawContextLines(context, window.WD_BORDER_LINES || [], "rgba(78, 60, 43, .46)", 0.8);
 		if (state.showRegionBoxes) drawImpactBoxes(context);
+	}
+
+	function weatherSettings(field) {
+		const configuredBases = CONFIG.weatherBases || {};
+		const configuredBounds = CONFIG.weatherBounds || {};
+		const configuredSteps = CONFIG.weatherSteps || {};
+		return {
+			base: String(configuredBases[field] || CONFIG.weatherBase || "").replace(/\/$/, ""),
+			bounds: Array.isArray(configuredBounds[field]) ? configuredBounds[field].map(Number) : [19.875, 5.125, 109.875, 55.125],
+			stepHours: Number(configuredSteps[field]) || 3,
+			fps: Number(CONFIG.weatherFps) || 6
+		};
+	}
+
+	function focusTimeMillis() {
+		return selected < 0 ? NaN : genesisMillis(selected) + focusFix * CONFIG.stepHours * HOUR_MS;
+	}
+
+	function weatherMonthForTime(timeMillis) {
+		const value = new Date(timeMillis).toISOString();
+		return value.slice(0, 4) + value.slice(5, 7);
+	}
+
+	function weatherMonthStart(month) {
+		return Date.parse(`${month.slice(0, 4)}-${month.slice(4, 6)}-01T00:00:00Z`);
+	}
+
+	function ensureWeatherVideo() {
+		if (weatherVideo) return weatherVideo;
+		weatherVideo = document.createElement("video");
+		weatherVideo.crossOrigin = "anonymous";
+		weatherVideo.muted = true;
+		weatherVideo.playsInline = true;
+		weatherVideo.preload = "auto";
+		weatherVideo.addEventListener("seeked", drawMapWeather);
+		weatherVideo.addEventListener("loadeddata", drawMapWeather);
+		weatherVideo.addEventListener("canplay", drawMapWeather);
+		weatherVideo.addEventListener("error", () => {
+			if (!weatherField) return;
+			const definition = WEATHER_FIELDS[weatherField];
+			weatherError = `${definition ? definition.label : "Weather"} is unavailable for ${weatherMonth}`;
+			weatherLoading = false;
+			updateWeatherControls();
+			drawMapWeather();
+		});
+		return weatherVideo;
+	}
+
+	function waitForVideoEvent(video, eventName, failureMessage, timeoutMillis) {
+		return new Promise((resolve, reject) => {
+			let timer;
+			const cleanup = () => {
+				window.clearTimeout(timer);
+				video.removeEventListener(eventName, ready);
+				video.removeEventListener("error", failed);
+			};
+			const ready = () => { cleanup(); resolve(video); };
+			const failed = () => { cleanup(); reject(new Error(failureMessage)); };
+			video.addEventListener(eventName, ready, { once: true });
+			video.addEventListener("error", failed, { once: true });
+			timer = window.setTimeout(() => { cleanup(); reject(new Error(`${failureMessage} (timed out)`)); }, timeoutMillis);
+		});
+	}
+
+	function weatherUrl(month, field) {
+		const settings = weatherSettings(field);
+		const extension = CONFIG.weatherFormat || "webm";
+		return settings.base ? `${settings.base}/${field}/${month.slice(0, 4)}/${month}.${extension}` : "";
+	}
+
+	async function loadWeatherMonth(timeMillis) {
+		const month = weatherMonthForTime(timeMillis);
+		const field = state.weatherLayer;
+		const video = ensureWeatherVideo();
+		if (weatherField === field && weatherMonth === month && video.readyState >= 1) return video;
+		const url = weatherUrl(month, field);
+		if (!url) throw new Error("The weather-data URL is not configured");
+		const serial = ++weatherLoadSerial;
+		weatherError = "";
+		weatherMonth = month;
+		weatherField = field;
+		const loading = waitForVideoEvent(video, "loadedmetadata", `Could not load ${month} ${WEATHER_FIELDS[field].label}`, 20000);
+		video.src = url;
+		video.load();
+		await loading;
+		if (serial !== weatherLoadSerial) throw new Error("Superseded weather request");
+		return video;
+	}
+
+	async function seekWeather(timeMillis) {
+		const video = await loadWeatherMonth(timeMillis);
+		const settings = weatherSettings(weatherField);
+		const frame = Math.round((timeMillis - weatherMonthStart(weatherMonth)) / (settings.stepHours * HOUR_MS));
+		const target = Math.max(0, frame / settings.fps + 0.001 / settings.fps);
+		if (Math.abs(video.currentTime - target) < 0.25 / settings.fps) {
+			drawMapWeather();
+			return;
+		}
+		const seeking = waitForVideoEvent(video, "seeked", `Could not seek ${weatherMonth} ${WEATHER_FIELDS[weatherField].label}`, 15000);
+		video.currentTime = target;
+		await seeking;
+		drawMapWeather();
+	}
+
+	async function syncWeatherToFocus() {
+		const timeMillis = focusTimeMillis();
+		if (state.weatherLayer === "none" || !Number.isFinite(timeMillis)) {
+			weatherLoading = false;
+			updateWeatherControls();
+			drawMapWeather();
+			return;
+		}
+		const serial = ++weatherSyncSerial;
+		weatherError = "";
+		weatherLoading = true;
+		updateWeatherControls();
+		try {
+			await seekWeather(timeMillis);
+		} catch (error) {
+			if (String(error && error.message).includes("Superseded")) return;
+			weatherError = error && error.message ? error.message : String(error);
+		} finally {
+			if (serial === weatherSyncSerial) weatherLoading = false;
+		}
+		if (serial === weatherSyncSerial) updateWeatherControls();
+	}
+
+	const scheduleWeatherSync = debounce(syncWeatherToFocus, 80);
+
+	function updateWeatherControls() {
+		const definition = WEATHER_FIELDS[state.weatherLayer];
+		const key = $("#wdWeatherKey");
+		key.hidden = !definition;
+		$("#wdRetryWeather").hidden = !weatherError;
+		$("#wdWeatherLayer").value = state.weatherLayer;
+		if (definition) {
+			$("#wdWeatherKeyMin").textContent = definition.keyMin;
+			$("#wdWeatherKeyMax").textContent = definition.keyMax;
+			$("#wdWeatherRamp").dataset.field = state.weatherLayer;
+		}
+		let message = "";
+		if (weatherError) message = weatherError;
+		else if (weatherLoading && definition) message = `Loading ${definition.label} for ${formatTrackTime(selected, focusFix)}…`;
+		else if (definition && selected >= 0) message = `${definition.label} · ${formatTrackTime(selected, focusFix)}`;
+		else if (definition) message = "Select a track to choose the weather time.";
+		$("#wdWeatherStatus").textContent = message;
+		$("#wdTimeControls").hidden = selected < 0 && state.weatherLayer === "none";
+		$("#wdTrackFix").disabled = selected < 0;
+		$("#wdPreviousFix").disabled = selected < 0 || focusFix <= 0;
+		$("#wdNextFix").disabled = selected < 0 || focusFix >= (selected < 0 ? 0 : OFF[selected][1] - 1);
+	}
+
+	function maskedWeatherFrame() {
+		const encodedWidth = weatherVideo.videoWidth;
+		const height = weatherVideo.videoHeight;
+		const width = Math.floor(encodedWidth / 2);
+		if (!width || !height || encodedWidth !== width * 2) return null;
+		if (!weatherFrameCanvas) {
+			weatherFrameCanvas = document.createElement("canvas");
+			weatherFrameContext = weatherFrameCanvas.getContext("2d", { willReadFrequently: true });
+			weatherEncodedCanvas = document.createElement("canvas");
+			weatherEncodedContext = weatherEncodedCanvas.getContext("2d", { willReadFrequently: true });
+		}
+		if (weatherFrameCanvas.width !== width || weatherFrameCanvas.height !== height) {
+			weatherFrameCanvas.width = width; weatherFrameCanvas.height = height;
+			weatherEncodedCanvas.width = encodedWidth; weatherEncodedCanvas.height = height;
+		}
+		weatherEncodedContext.clearRect(0, 0, encodedWidth, height);
+		weatherEncodedContext.drawImage(weatherVideo, 0, 0, encodedWidth, height);
+		const encoded = weatherEncodedContext.getImageData(0, 0, encodedWidth, height);
+		const frame = weatherFrameContext.createImageData(width, height);
+		for (let y = 0; y < height; y += 1) {
+			for (let x = 0; x < width; x += 1) {
+				const target = (y * width + x) * 4;
+				const colour = (y * encodedWidth + x) * 4;
+				const mask = (y * encodedWidth + x + width) * 4;
+				frame.data[target] = encoded.data[colour];
+				frame.data[target + 1] = encoded.data[colour + 1];
+				frame.data[target + 2] = encoded.data[colour + 2];
+				frame.data[target + 3] = encoded.data[mask] <= 8 ? 0 : encoded.data[mask];
+			}
+		}
+		weatherFrameContext.putImageData(frame, 0, 0);
+		return weatherFrameCanvas;
+	}
+
+	function drawMapWeather() {
+		if (!map.weatherContext) return;
+		map.weatherContext.clearRect(0, 0, map.width, map.height);
+		if (state.weatherLayer === "none" || selected < 0 || !weatherVideo || weatherVideo.readyState < 2 || weatherError) return;
+		const [west, south, east, north] = weatherSettings(state.weatherLayer).bounds;
+		map.weatherContext.save();
+		map.weatherContext.globalAlpha = 0.88;
+		map.weatherContext.imageSmoothingEnabled = false;
+		try {
+			const frame = maskedWeatherFrame();
+			if (frame) map.weatherContext.drawImage(frame, projectX(west), projectY(north), projectX(east) - projectX(west), projectY(south) - projectY(north));
+		} catch (_) {
+			weatherError = "The browser could not draw this cross-origin weather frame";
+			updateWeatherControls();
+		}
+		map.weatherContext.restore();
 	}
 
 	function drawContextLines(context, lines, stroke, width) {
@@ -562,7 +888,6 @@
 	function drawMapData() {
 		const context = map.dataContext;
 		context.clearRect(0, 0, map.width, map.height);
-		map.pickContext.clearRect(0, 0, map.width, map.height);
 		map.rendered = [];
 		const layer = resolvedMapLayer();
 		if (layer === "density") drawDensity(context);
@@ -616,14 +941,9 @@
 		context.save();
 		context.lineJoin = "round";
 		context.lineCap = "round";
-		map.pickContext.lineJoin = "round";
-		map.pickContext.lineCap = "round";
-		map.pickContext.lineWidth = 7;
 		for (let renderedIndex = 0; renderedIndex < list.length; renderedIndex += 1) {
 			const index = list[renderedIndex];
 			drawTrackPath(context, index, colourForTrack(index), width, alpha);
-			const pickId = renderedIndex + 1;
-			drawTrackPath(map.pickContext, index, `rgb(${pickId & 255},${(pickId >> 8) & 255},${(pickId >> 16) & 255})`, 7, 1);
 		}
 		context.restore();
 	}
@@ -645,11 +965,6 @@
 			context.arc(x, y, filtered.length > 3000 ? 1.5 : 2.5, 0, Math.PI * 2);
 			context.fillStyle = withAlpha(colourForTrack(index), filtered.length > 3000 ? 0.45 : 0.78);
 			context.fill();
-			const pickId = renderedIndex + 1;
-			map.pickContext.beginPath();
-			map.pickContext.arc(x, y, 6, 0, Math.PI * 2);
-			map.pickContext.fillStyle = `rgb(${pickId & 255},${(pickId >> 8) & 255},${(pickId >> 16) & 255})`;
-			map.pickContext.fill();
 		}
 	}
 
@@ -707,7 +1022,7 @@
 	}
 
 	function handleMapHover(event) {
-		const index = pickMapFeature(event.clientX, event.clientY, 3);
+		const index = mapHitTest(event.clientX, event.clientY, 9);
 		if (index !== hovered) {
 			hovered = index;
 			drawMapOverlay();
@@ -729,40 +1044,33 @@
 	}
 
 	function selectMapFeature(event) {
-		const index = pickMapFeature(event.clientX, event.clientY, window.matchMedia("(pointer:coarse)").matches ? 15 : 5);
+		const touch = event.pointerType === "touch" || window.matchMedia("(pointer:coarse)").matches;
+		const index = mapHitTest(event.clientX, event.clientY, touch ? 22 : 11);
 		if (index < 0) return;
-		if (index === selected) {
-			const rect = map.overlay.getBoundingClientRect();
-			focusFix = nearestFix(index, event.clientX - rect.left, event.clientY - rect.top);
-		}
-		selectTrack(index, { fit: false });
+		const rect = map.overlay.getBoundingClientRect();
+		const nearest = nearestFix(index, event.clientX - rect.left, event.clientY - rect.top);
+		selectTrack(index, { fit: false, focusFix: nearest });
 	}
 
-	function pickMapFeature(clientX, clientY, tolerance) {
-		if (!map.rendered.length) return -1;
+	function mapHitTest(clientX, clientY, tolerance) {
+		if (!filtered.length) return -1;
 		const rect = map.overlay.getBoundingClientRect();
-		const centerX = Math.round(clientX - rect.left);
-		const centerY = Math.round(clientY - rect.top);
-		const x0 = Math.max(0, centerX - tolerance);
-		const y0 = Math.max(0, centerY - tolerance);
-		const x1 = Math.min(map.pick.width - 1, centerX + tolerance);
-		const y1 = Math.min(map.pick.height - 1, centerY + tolerance);
-		if (x1 < x0 || y1 < y0) return -1;
-		const width = x1 - x0 + 1;
-		const height = y1 - y0 + 1;
-		const pixels = map.pickContext.getImageData(x0, y0, width, height).data;
-		let bestId = 0;
-		let bestDistance = Infinity;
-		for (let y = 0; y < height; y += 1) {
-			for (let x = 0; x < width; x += 1) {
-				const offset = (y * width + x) * 4;
-				const id = pixels[offset] | (pixels[offset + 1] << 8) | (pixels[offset + 2] << 16);
-				if (!id) continue;
-				const distance = (x0 + x - centerX) ** 2 + (y0 + y - centerY) ** 2;
-				if (distance < bestDistance) { bestDistance = distance; bestId = id; }
+		const screenX = clientX - rect.left;
+		const screenY = clientY - rect.top;
+		const layer = resolvedMapLayer();
+		if (layer === "genesis" || layer === "lysis") {
+			let best = -1;
+			let bestDistance = tolerance ** 2;
+			for (const index of filtered) {
+				const [start, length] = OFF[index];
+				const point = layer === "lysis" ? start + length - 1 : start;
+				const distance = (projectX(PLON[point] / 100) - screenX) ** 2 + (projectY(PLAT[point] / 100) - screenY) ** 2;
+				if (distance < bestDistance) { bestDistance = distance; best = index; }
 			}
+			return best;
 		}
-		return bestId > 0 && bestId <= map.rendered.length ? map.rendered[bestId - 1] : -1;
+		const radius = layer === "density" ? Math.max(tolerance, 16) : tolerance;
+		return segmentIndex.query(screenX, screenY, radius);
 	}
 
 	function nearestFix(index, screenX, screenY) {
@@ -869,12 +1177,18 @@
 		const changed = selected !== index;
 		selected = index;
 		if (changed) {
-			const [start, length] = OFF[index];
-			let peak = 0;
-			for (let j = 1; j < length; j += 1) {
-				if (PVORT[start + j] > PVORT[start + peak]) peak = j;
+			if (Number.isInteger(options.focusFix)) {
+				focusFix = clamp(options.focusFix, 0, OFF[index][1] - 1);
+			} else {
+				const [start, length] = OFF[index];
+				let peak = 0;
+				for (let j = 1; j < length; j += 1) {
+					if (PVORT[start + j] > PVORT[start + peak]) peak = j;
+				}
+				focusFix = peak;
 			}
-			focusFix = peak;
+		} else if (Number.isInteger(options.focusFix)) {
+			focusFix = clamp(options.focusFix, 0, OFF[index][1] - 1);
 		}
 		const length = OFF[index][1];
 		$("#wdTrackFix").max = Math.max(0, length - 1);
@@ -884,6 +1198,7 @@
 		renderDossier();
 		renderTable();
 		updateFocusReadout();
+		if (state.weatherLayer !== "none") syncWeatherToFocus();
 		drawMap();
 		drawLifeChart();
 		if (options.fit) fitSelectedTrack(index);
@@ -894,12 +1209,15 @@
 		selected = -1;
 		hovered = -1;
 		focusFix = 0;
-		$("#wdTimeControls").hidden = true;
+		weatherSyncSerial += 1;
+		weatherLoading = false;
+		$("#wdTimeControls").hidden = state.weatherLayer === "none";
 		$("#wdDownloadFixes").disabled = true;
 		renderDossier();
 		renderTable();
 		drawMap();
 		drawLifeChart();
+		updateWeatherControls();
 		scheduleUrlUpdate();
 	}
 
@@ -928,6 +1246,7 @@
 		updateFocusReadout();
 		drawMapOverlay();
 		drawLifeChart();
+		if (state.weatherLayer !== "none") scheduleWeatherSync();
 	}
 
 	function updateFocusReadout() {
@@ -938,6 +1257,7 @@
 		$("#wdFocusVort").textContent = `${(PVORT[point] / 10).toFixed(1)} ×10⁻⁵ s⁻¹`;
 		$("#wdPreviousFix").disabled = focusFix <= 0;
 		$("#wdNextFix").disabled = focusFix >= OFF[selected][1] - 1;
+		updateWeatherControls();
 	}
 
 	function renderDossier() {
@@ -1395,6 +1715,7 @@
 		if (params.has("q")) state.query = params.get("q").slice(0, 60);
 		if (["auto", "density", "tracks", "genesis", "lysis"].includes(params.get("layer"))) state.mapLayer = params.get("layer");
 		if (["single", "intensity", "region", "year"].includes(params.get("colour"))) state.mapColour = params.get("colour");
+		if (["none", "vorticity350", "precipitation"].includes(params.get("weather"))) state.weatherLayer = params.get("weather");
 		if (params.get("boxes") === "0") state.showRegionBoxes = false;
 		if (["explore", "climatology", "extremes", "data"].includes(params.get("tab"))) activeTab = params.get("tab");
 		if (params.has("selected")) selected = idToIndex.get(params.get("selected")) ?? -1;
@@ -1423,8 +1744,9 @@
 		if (state.durationMin) params.set("duration", state.durationMin);
 		if (state.regions.size) params.set("regions", [...state.regions].sort((a, b) => a - b).join(","));
 		if (state.query) params.set("q", state.query);
-		if (state.mapLayer !== "auto") params.set("layer", state.mapLayer);
+		if (state.mapLayer !== "tracks") params.set("layer", state.mapLayer);
 		if (state.mapColour !== "single") params.set("colour", state.mapColour);
+		if (state.weatherLayer !== "none") params.set("weather", state.weatherLayer);
 		if (!state.showRegionBoxes) params.set("boxes", "0");
 		if (activeTab !== "explore") params.set("tab", activeTab);
 		if (selected >= 0) params.set("selected", CAT.id[selected]);

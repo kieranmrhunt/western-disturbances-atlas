@@ -257,7 +257,8 @@
 .mla-map-nav-buttons { display: inline-flex; align-items: center; gap: 7px; flex-wrap: nowrap; white-space: nowrap; }
 .mla-map-stack { position: relative; height: 610px; overflow: hidden; background: var(--mla-sea); }
 .mla-map-layer { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-#mlaMapWeather { pointer-events: none; }
+#mlaMapWeather,
+#wdMapWeather { pointer-events: none; }
 #mlaMapOverlay { cursor: grab; touch-action: none; }
 #mlaMapOverlay.is-dragging { cursor: grabbing; }
 .mla-map-tip {
@@ -292,9 +293,11 @@
 .mla-time-slider:disabled { cursor: not-allowed; opacity: .5; }
 .mla-weather-key { display: inline-flex; align-items: center; gap: 6px; color: var(--mla-muted); font-size: 11px; }
 .mla-weather-ramp { width: 110px; height: 9px; border-radius: 999px; }
-.mla-weather-ramp[data-field="vorticity"] { background: linear-gradient(90deg, rgba(49, 54, 149, 0), #313695 8%, #4575b4 24%, #91bfdb 40%, #f7f7f7 55%, #d6604d 78%, #67001f); }
+.mla-weather-ramp[data-field="vorticity"],
+.mla-weather-ramp[data-field="vorticity350"] { background: linear-gradient(90deg, rgba(49, 54, 149, 0), #313695 8%, #4575b4 24%, #91bfdb 40%, #f7f7f7 55%, #d6604d 78%, #67001f); }
 .mla-weather-ramp[data-field="precipitation"] { background: linear-gradient(90deg, rgba(247, 252, 253, 0), #ccece6 10%, #66c2a4 30%, #238b45 52%, #225ea8 75%, #54278f); }
 .mla-weather-ramp[data-field="rh500"] { background: linear-gradient(90deg, rgba(246, 239, 247, .7), #d4b9da 20%, #9e9ac8 45%, #6a51a3 70%, #3f007d); }
+.wd-weather-status { flex-basis: 100%; min-height: 1.1em; color: var(--mla-muted); font-size: 11px; }
 .mla-map-foot { display: flex; gap: 10px 18px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 9px 12px; border-top: 1px solid var(--mla-line); color: var(--mla-muted); font-size: 12px; }
 .mla-legend { display: flex; gap: 7px 12px; align-items: center; flex-wrap: wrap; }
 .mla-legend-item { display: inline-flex; align-items: center; gap: 5px; }
