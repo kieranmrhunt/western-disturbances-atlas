@@ -4,9 +4,9 @@
 #SBATCH --qos=standard
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=6G
-#SBATCH --time=02:00:00
+#SBATCH --time=06:00:00
 #SBATCH --job-name=wd-weather
-#SBATCH --array=0-911%12
+#SBATCH --array=0-911%6
 #SBATCH --output=hpc-logs/wd-weather-%A_%a.out
 
 set -euo pipefail

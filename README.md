@@ -1,6 +1,6 @@
 # Western Disturbances Atlas
 
-Static GitHub Pages atlas for the ERA5-derived WD v5 catalogue: 16,850 western-disturbance trajectories and 398,584 three-hourly fixes from 1950–2025.
+Static GitHub Pages atlas for the corrected ERA5-derived WD v6 catalogue: 16,298 western-disturbance trajectories and 460,411 three-hourly fixes from 1950–2025.
 
 The interface shares the visual language and main workflow of the [Monsoon Low-Pressure System Atlas](https://kieranmrhunt.github.io/monsoon-low-atlas/) while retaining WD-specific diagnostics and removing LPS-specific concepts.
 
@@ -11,7 +11,7 @@ The interface shares the visual language and main workflow of the [Monsoon Low-P
 - Display names are `WD YYYY NNN`, using genesis year and within-year genesis order; the original `track_id` remains in exports and deep links.
 - Intensity is track-centred relative vorticity averaged through the 450–300 hPa layer, spectrally truncated to T42, in 10⁻⁵ s⁻¹. This is the upper-tropospheric WD diagnostic; the site does not substitute 850-hPa LPS vorticity.
 - Precipitation is the catalogue's track-centred or regional 24 h diagnostic in mm.
-- Vorticity, precipitation and path-length percentiles are fixed against the complete 16,850-track snapshot. Filtering does not rescale them.
+- Vorticity, precipitation and path-length percentiles are fixed against the complete 16,298-track catalogue. Filtering does not rescale them.
 - Density counts each trajectory once per one-degree grid cell. Density remains selectable through a geographical segment index built from the underlying trajectories.
 - The five precipitation-impact boxes are transparent analysis regions, not administrative boundaries. “Dominant” is the box with the largest peak 24 h precipitation for a trajectory.
 - Genesis locations use the four winter k-means clusters from Figure 5 of the 2025 WD review (North Atlantic jet stream, Alps/Northern Europe, Mediterranean and Zagros), with distant points assigned to `Other` using the original clusters' 99.5% distance envelopes.
@@ -26,7 +26,7 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 - Deep-linkable filter, tab, map and selection state.
 - Individual tracks by default, plus unique-track density, genesis, lysis and selected-track-only layers; every data layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order. The selected trajectory is black.
 - Contemporaneous ERA5 overlays for three-hourly positive 350-hPa vorticity at 0.5° and hourly trailing 24 h precipitation at 1°.
-- Per-track dossiers, three-hourly time stepping, regional precipitation diagnostics and accessible lifecycle plots for stored vorticity and precipitation plus trajectory-derived speed, cumulative path and displacement. Latitude and longitude remain available in fix exports and map readouts rather than as lifecycle variables.
+- Per-track dossiers, actual-UTC fix stepping and accessible lifecycle plots with 61 choices: five core diagnostics plus 56 lazily loaded ERA5 fields spanning vorticity, precipitation, surface conditions, pressure-level winds, temperature, humidity and moisture flux. Latitude and longitude remain in fix exports and map readouts rather than as lifecycle variables.
 - Filter-aware annual, seasonal, impact-region and genesis-density climatologies.
 - Filter-aware catalogue extremes.
 - Summary CSV, track GeoJSON, reproducibility JSON and selected-fix CSV exports.
@@ -46,14 +46,16 @@ Then open `http://localhost:8000/`.
 
 ## Asset layout
 
-- `assets/wd-atlas-catalogue-v5.json.gz`: catalogue metadata, track summaries and fix offsets.
-- `assets/wd-atlas-fixes-v5.i16.gz`: concatenated `int16` longitude ×100, latitude ×100, vorticity ×10 and precipitation ×100 arrays.
+- `assets/wd-atlas-catalogue-v6.json.gz`: catalogue metadata, track summaries, fix offsets and evolution-field descriptors.
+- `assets/wd-atlas-fixes-v6.i16.gz`: concatenated `int16` longitude ×100, latitude ×100, vorticity ×10 and precipitation ×100 arrays.
+- `assets/wd-atlas-times-v6.i32.gz`: actual fix times as integer hours since 1950-01-01 UTC, preserving gaps bridged by the tracker.
+- `assets/wd-atlas-diag-v6-*.f32.gz`: one `float32` per-fix diagnostic per file, fetched only when selected.
 - `assets/map-context.js`: quantised Natural Earth coastline and national-border polylines.
 - `assets/atlas-build-manifest.json`: byte counts and SHA-256 checksums.
 - `assets/atlas.css`: shared monsoon-atlas design language plus WD additions.
 - `assets/atlas-app.js`: dependency-free atlas application.
 
-Modern browsers decompress the two gzip assets with `DecompressionStream`.
+Modern browsers decompress the gzip assets with `DecompressionStream`.
 
 ## Weather archive
 
@@ -90,7 +92,18 @@ For an unattended build, submit that finalization with `--dependency=afterok:<ar
 
 Each WebM frame stores colour in its left half and an opacity mask as right-half luma. The frontend reconstructs RGBA in a canvas. Vorticity uses one frame per ERA5 three-hourly analysis; precipitation uses one frame per hour.
 
-## Rebuilding the split assets
+## Rebuilding the catalogue assets
+
+Build the WD-v6 browser assets from the validated Parquet catalogue with:
+
+```bash
+python scripts/build_catalogue_v6.py
+python scripts/validate_atlas.py
+```
+
+The builder enforces row, key and per-track count conservation and writes deterministic gzip files plus a SHA-256 manifest.
+
+## Legacy split assets
 
 The original deployment embedded the catalogue and map context in one 3.9 MB HTML file. To reproduce the split assets from a checkout of that legacy file:
 
@@ -110,4 +123,4 @@ Reapply the WD additions at the end of `assets/atlas.css` after importing a newe
 
 ## Provenance
 
-The atlas links to the archived 1950–2022 dataset at [Zenodo](https://doi.org/10.5281/zenodo.8208019). The deployed atlas snapshot extends through 2025; until that extension has its own archived release record, exports identify it as `WD v5 atlas snapshot` rather than implying Zenodo contains the later years.
+The atlas follows the versioned dataset under the [Western disturbance dataset concept DOI](https://doi.org/10.5281/zenodo.18328597). A new WD-v6 version is prepared as a Zenodo draft for author review; the concept DOI continues to resolve to the latest published version until that draft is published.

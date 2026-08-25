@@ -39,13 +39,13 @@
 		vorticity350: { label: "350-hPa vorticity", keyMin: "0", keyMax: "28 × 10⁻⁵ s⁻¹" },
 		precipitation: { label: "trailing 24 h precipitation", keyMin: "0", keyMax: "150 mm" }
 	});
-	const EVOLUTION_METRICS = Object.freeze({
+	const EVOLUTION_METRICS = {
 		vorticity: { label: "450–300 hPa vorticity", shortLabel: "ζ", yLabel: "450–300 hPa ζ (10⁻⁵ s⁻¹)", unit: " ×10⁻⁵ s⁻¹", decimals: 1, zeroBased: true, colour: "--mla-madder", fallback: "#aa3d2d" },
 		rain: { label: "24 h precipitation", shortLabel: "precipitation", yLabel: "24 h precipitation (mm)", unit: " mm", decimals: 2, zeroBased: true, colour: "--mla-atlas-blue", fallback: "#3978a8" },
 		speed: { label: "translation speed", shortLabel: "speed", yLabel: "Translation speed (m s⁻¹)", unit: " m s⁻¹", decimals: 1, zeroBased: true, colour: "--mla-turmeric", fallback: "#c3931d" },
 		path: { label: "cumulative path length", shortLabel: "path", yLabel: "Cumulative path length (km)", unit: " km", decimals: 0, zeroBased: true, colour: "--mla-good", fallback: "#5c7d43" },
 		displacement: { label: "displacement from genesis", shortLabel: "displacement", yLabel: "Displacement from genesis (km)", unit: " km", decimals: 0, zeroBased: true, colour: "--mla-purple", fallback: "#76558f" }
-	});
+	};
 
 	let DATA;
 	let CAT;
@@ -55,6 +55,10 @@
 	let PLAT;
 	let PVORT;
 	let PRAIN;
+	let PTIME;
+	const diagnosticArrays = new Map();
+	const diagnosticPromises = new Map();
+	const diagnosticErrors = new Map();
 	let filtered = [];
 	let selected = -1;
 	let hovered = -1;
@@ -127,9 +131,10 @@
 	});
 
 	async function initialise() {
-		const [catalogueBuffer, fixesBuffer] = await Promise.all([
+		const [catalogueBuffer, fixesBuffer, timesBuffer] = await Promise.all([
 			fetchInflated(CONFIG.catalogue),
-			fetchInflated(CONFIG.fixes)
+			fetchInflated(CONFIG.fixes),
+			fetchInflated(CONFIG.times)
 		]);
 		DATA = JSON.parse(new TextDecoder().decode(catalogueBuffer));
 		CAT = DATA.cat;
@@ -144,6 +149,11 @@
 		PLAT = fixes.subarray(META.npts, META.npts * 2);
 		PVORT = fixes.subarray(META.npts * 2, META.npts * 3);
 		PRAIN = fixes.subarray(META.npts * 3, META.npts * 4);
+		PTIME = new Int32Array(timesBuffer);
+		if (PTIME.length !== META.npts) {
+			throw new Error(`Time asset contains ${PTIME.length} values; expected ${META.npts}.`);
+		}
+		installEvolutionMetrics();
 		for (let i = 0; i < META.ntracks; i += 1) idToIndex.set(String(CAT.id[i]), i);
 		buildDerivedCatalogueFields();
 		filteredBit = new Uint8Array(META.ntracks);
@@ -162,6 +172,48 @@
 		applyFilters({ resetPage: false });
 		if (selected >= 0) selectTrack(selected, { fit: false, updateUrl: false });
 		switchTab(activeTab, { updateUrl: false });
+	}
+
+	function installEvolutionMetrics() {
+		for (const descriptor of META.diagnostics || []) EVOLUTION_METRICS[descriptor.key] = descriptor;
+		const groups = [
+			["Core diagnostics", ["vorticity", "rain"]],
+			["Trajectory", ["speed", "path", "displacement"]]
+		];
+		for (const descriptor of META.diagnostics || []) {
+			let group = groups.find(([label]) => label === descriptor.group);
+			if (!group) { group = [descriptor.group, []]; groups.push(group); }
+			group[1].push(descriptor.key);
+		}
+		const options = groups.map(([label, keys]) => `<optgroup label="${escapeHtml(label)}">${keys.map((key) => `<option value="${escapeHtml(key)}">${escapeHtml(EVOLUTION_METRICS[key].label)}</option>`).join("")}</optgroup>`).join("");
+		for (const select of [$("#wdEvolutionMetric"), $("#wdProfileMetric")]) select.innerHTML = options;
+	}
+
+	function loadDiagnostic(metric) {
+		const descriptor = EVOLUTION_METRICS[metric];
+		if (!descriptor || !descriptor.file) return Promise.resolve(null);
+		if (diagnosticArrays.has(metric)) return Promise.resolve(diagnosticArrays.get(metric));
+		if (diagnosticPromises.has(metric)) return diagnosticPromises.get(metric);
+		const promise = fetchInflated(descriptor.file).then((buffer) => {
+			const values = new Float32Array(buffer);
+			if (values.length !== META.npts) throw new Error(`${descriptor.label} contains ${values.length} values; expected ${META.npts}.`);
+			diagnosticArrays.set(metric, values);
+			diagnosticErrors.delete(metric);
+			return values;
+		}).catch((error) => {
+			diagnosticErrors.set(metric, error.message || String(error));
+			throw error;
+		}).finally(() => diagnosticPromises.delete(metric));
+		diagnosticPromises.set(metric, promise);
+		return promise;
+	}
+
+	function metricIsReady(metric, redraw) {
+		const descriptor = EVOLUTION_METRICS[metric];
+		if (!descriptor || !descriptor.file || diagnosticArrays.has(metric)) return true;
+		if (diagnosticErrors.has(metric)) return false;
+		if (!diagnosticPromises.has(metric)) loadDiagnostic(metric).then(redraw).catch(redraw);
+		return false;
 	}
 
 	async function fetchInflated(url) {
@@ -597,17 +649,18 @@
 	function updateStats() {
 		let intensity = 0;
 		let rain = 0;
+		let rainCount = 0;
 		let duration = 0;
 		for (const index of filtered) {
 			intensity += CAT.pk_int[index];
-			rain += CAT.pk_pr[index];
+			if (Number.isFinite(CAT.pk_pr[index])) { rain += CAT.pk_pr[index]; rainCount += 1; }
 			duration += CAT.dur[index];
 		}
 		const count = filtered.length || 1;
 		const cards = [
 			["Systems", filtered.length.toLocaleString(), `${(filtered.length / META.ntracks * 100).toFixed(1)}% of catalogue`],
 			["Mean peak ζ", filtered.length ? (intensity / count).toFixed(1) : "—", "10⁻⁵ s⁻¹ · 450–300 hPa"],
-			["Mean peak precipitation", filtered.length ? (rain / count).toFixed(1) : "—", "mm · track-centred 24 h"],
+			["Mean peak precipitation", rainCount ? (rain / rainCount).toFixed(1) : "—", "mm · track-centred 24 h"],
 			["Mean lifetime", filtered.length ? Math.round(duration / count).toLocaleString() : "—", "hours"]
 		];
 		$("#wdStats").innerHTML = cards.map(([label, value, note]) => `<div class="mla-card mla-stat"><span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join("");
@@ -776,7 +829,7 @@
 	}
 
 	function focusTimeMillis() {
-		return selected < 0 ? NaN : genesisMillis(selected) + focusFix * CONFIG.stepHours * HOUR_MS;
+		return selected < 0 ? NaN : fixTimeMillis(selected, focusFix);
 	}
 
 	function weatherMonthForTime(timeMillis) {
@@ -1171,7 +1224,7 @@
 		}
 		const rect = $("#wdMapStack").getBoundingClientRect();
 		const tip = $("#wdMapTip");
-		tip.innerHTML = `<strong>${trackName(index)}</strong><br>${formatGenesis(index)} · ${REGION_LONG[CAT.dom[index]]}<br>Peak ζ ${CAT.pk_int[index].toFixed(1)} ×10⁻⁵ s⁻¹ (P${Math.round(CAT.pct_int[index])}) · ${CAT.pk_pr[index].toFixed(1)} mm`;
+		tip.innerHTML = `<strong>${trackName(index)}</strong><br>${formatGenesis(index)} · ${REGION_LONG[CAT.dom[index]]}<br>Peak ζ ${CAT.pk_int[index].toFixed(1)} ×10⁻⁵ s⁻¹ (P${Math.round(CAT.pct_int[index])}) · ${formatNumber(CAT.pk_pr[index], 1)} mm`;
 		tip.style.left = `${event.clientX - rect.left}px`;
 		tip.style.top = `${event.clientY - rect.top}px`;
 		tip.dataset.visible = "true";
@@ -1417,7 +1470,7 @@
 			</div>
 			<div class="mla-fact-grid">
 				<div class="mla-fact"><span>Peak 450–300 hPa ζ</span><strong>${CAT.pk_int[index].toFixed(1)}</strong><small>10⁻⁵ s⁻¹ · P${Math.round(CAT.pct_int[index])}</small></div>
-				<div class="mla-fact"><span>Peak 24 h precipitation</span><strong>${CAT.pk_pr[index].toFixed(1)} mm</strong><small>P${Math.round(CAT.pct_pr[index])}</small></div>
+				<div class="mla-fact"><span>Peak 24 h precipitation</span><strong>${formatNumber(CAT.pk_pr[index], 1)} mm</strong><small>${CAT.pk_pr[index] == null ? "not available" : `P${Math.round(CAT.pct_pr[index])}`}</small></div>
 				<div class="mla-fact"><span>Path length</span><strong>${Math.round(CAT.len_km[index]).toLocaleString()} km</strong><small>P${Math.round(CAT.pct_len[index])}</small></div>
 				<div class="mla-fact"><span>Lifetime</span><strong>${CAT.dur[index]} h</strong><small>${length} three-hourly fixes</small></div>
 				<div class="mla-fact"><span>Genesis</span><strong class="wd-coordinate">${(PLAT[start] / 100).toFixed(2)}°N</strong><small>${(PLON[start] / 100).toFixed(2)}°E</small></div>
@@ -1441,7 +1494,7 @@
 		const rows = ordered.slice(start, start + TABLE_PAGE_SIZE);
 		const table = $("#wdTopTable");
 		table.tHead.innerHTML = '<tr><th>Track</th><th>Genesis</th><th>Dominant precipitation region</th><th class="mla-num">Peak ζ</th><th class="mla-num">Peak precipitation</th><th class="mla-num">Length</th><th class="mla-num">Duration</th></tr>';
-		table.tBodies[0].innerHTML = rows.map((index) => `<tr data-index="${index}" data-selected="${index === selected}"><td><button class="mla-row-button" type="button">${trackName(index)}</button></td><td>${formatGenesis(index)}</td><td><span class="mla-swatch" style="background:${REGION_COLORS[CAT.dom[index]]}"></span> ${REGION_LABELS[CAT.dom[index]]}</td><td class="mla-num">${CAT.pk_int[index].toFixed(1)} <span class="wd-footnote">P${Math.round(CAT.pct_int[index])}</span></td><td class="mla-num">${CAT.pk_pr[index].toFixed(1)} mm</td><td class="mla-num">${Math.round(CAT.len_km[index]).toLocaleString()} km</td><td class="mla-num">${CAT.dur[index]} h</td></tr>`).join("");
+		table.tBodies[0].innerHTML = rows.map((index) => `<tr data-index="${index}" data-selected="${index === selected}"><td><button class="mla-row-button" type="button">${trackName(index)}</button></td><td>${formatGenesis(index)}</td><td><span class="mla-swatch" style="background:${REGION_COLORS[CAT.dom[index]]}"></span> ${REGION_LABELS[CAT.dom[index]]}</td><td class="mla-num">${CAT.pk_int[index].toFixed(1)} <span class="wd-footnote">P${Math.round(CAT.pct_int[index])}</span></td><td class="mla-num">${formatNumber(CAT.pk_pr[index], 1)} mm</td><td class="mla-num">${Math.round(CAT.len_km[index]).toLocaleString()} km</td><td class="mla-num">${CAT.dur[index]} h</td></tr>`).join("");
 		$$('[data-index]', table.tBodies[0]).forEach((row) => row.addEventListener("click", () => selectTrack(Number(row.dataset.index), { fit: false })));
 		$("#wdTablePage").textContent = ordered.length ? `Showing ${start + 1}–${Math.min(start + TABLE_PAGE_SIZE, ordered.length)} of ${ordered.length.toLocaleString()} · page ${tablePage + 1} of ${pages}` : "No systems match the filters";
 		$("#wdTablePrevious").disabled = tablePage === 0;
@@ -1466,9 +1519,16 @@
 			$("#wdLifeData").innerHTML = "";
 			return;
 		}
-		const points = trackPoints(selected);
 		const metric = $("#wdEvolutionMetric").value;
 		const descriptor = EVOLUTION_METRICS[metric] || EVOLUTION_METRICS.vorticity;
+		if (!metricIsReady(metric, drawLifeChart)) {
+			const message = diagnosticErrors.has(metric) ? `Could not load ${descriptor.label}.` : `Loading ${descriptor.label}…`;
+			drawEmptyChart(context, width, height, message);
+			$("#wdLifeReadout").textContent = diagnosticErrors.get(metric) || message;
+			$("#wdLifeData").innerHTML = "";
+			return;
+		}
+		const points = trackPoints(selected);
 		const values = points.map((point) => evolutionValue(point, metric));
 		const rains = points.map((point) => point.rain ?? 0);
 		const range = metricRange(values, descriptor.zeroBased);
@@ -1483,7 +1543,8 @@
 			xLabel: "Hours since genesis"
 		});
 		const y = (value) => plot.bottom - (value - plot.yMin) / (plot.yMax - plot.yMin) * plot.height;
-		const x = (index) => plot.left + (points.length === 1 ? plot.width / 2 : index / (points.length - 1) * plot.width);
+		const maximumElapsed = Math.max(1, points.at(-1).elapsedHours);
+		const x = (index) => plot.left + (points.length === 1 ? plot.width / 2 : points[index].elapsedHours / maximumElapsed * plot.width);
 		if (metric === "vorticity") {
 			const rainMax = Math.max(1, ...rains);
 			const barWidth = Math.max(1, plot.width / points.length * 0.58);
@@ -1502,7 +1563,8 @@
 		}
 		drawLineSeries(context, values, x, y, css(descriptor.colour, descriptor.fallback), true, plot);
 		const markerX = x(focusFix);
-		const markerY = y(values[focusFix]);
+		const markerValue = values[focusFix];
+		const markerY = y(Number.isFinite(markerValue) ? markerValue : plot.yMin);
 		context.strokeStyle = css("--mla-indigo", "#233f78");
 		context.lineWidth = 1;
 		context.setLineDash([4, 4]);
@@ -1512,8 +1574,8 @@
 		context.beginPath(); context.arc(markerX, markerY, 4, 0, Math.PI * 2); context.fill();
 		$("#wdLifeReadout").textContent = `${formatTrackTime(selected, focusFix)} · ${descriptor.label} ${formatEvolutionValue(values[focusFix], descriptor)}`;
 		$("#wdLifeData").innerHTML = accessibleTable(
-			["UTC", "Latitude", "Longitude", "450–300 hPa vorticity (10^-5 s^-1)", "24 h precipitation (mm)", "Translation speed (m s^-1)", "Cumulative path (km)", "Displacement from genesis (km)"],
-			points.map((point, index) => [formatTrackTime(selected, index), point.lat.toFixed(2), point.lon.toFixed(2), point.vorticity.toFixed(1), formatNumber(point.rain, 2), point.speed.toFixed(1), point.path.toFixed(0), point.displacement.toFixed(0)])
+			["UTC", "Hours since genesis", "Latitude", "Longitude", `${descriptor.label} (${descriptor.unit.trim()})`],
+			points.map((point, index) => [formatTrackTime(selected, index), point.elapsedHours, point.lat.toFixed(2), point.lon.toFixed(2), formatNumber(values[index], descriptor.decimals)])
 		);
 	}
 
@@ -1528,6 +1590,13 @@
 		}
 		const metric = $("#wdProfileMetric").value;
 		const descriptor = EVOLUTION_METRICS[metric] || EVOLUTION_METRICS.vorticity;
+		if (!metricIsReady(metric, drawProfileChart)) {
+			const message = diagnosticErrors.has(metric) ? `Could not load ${descriptor.label}.` : `Loading ${descriptor.label}…`;
+			drawEmptyChart(context, width, height, message);
+			$("#wdProfileReadout").textContent = diagnosticErrors.get(metric) || message;
+			$("#wdProfileData").innerHTML = "";
+			return;
+		}
 		const binCount = 21;
 		const bins = Array.from({ length: binCount }, () => []);
 		for (const index of filtered) {
@@ -1536,7 +1605,8 @@
 			const sums = Array(binCount).fill(0);
 			const counts = Array(binCount).fill(0);
 			for (let j = 0; j < length; j += 1) {
-				const bin = length === 1 ? 0 : Math.round(j / (length - 1) * (binCount - 1));
+				const lifetime = Math.max(1, points.at(-1).elapsedHours);
+				const bin = length === 1 ? 0 : Math.round(points[j].elapsedHours / lifetime * (binCount - 1));
 				const value = evolutionValue(points[j], metric);
 				if (value == null || !Number.isFinite(value)) continue;
 				sums[bin] += value;
@@ -1717,7 +1787,7 @@
 
 	function extremeValue(index, metric) {
 		if (metric === "intensity") return CAT.pk_int[index];
-		if (metric === "rain") return CAT.pk_pr[index];
+		if (metric === "rain") return Number.isFinite(CAT.pk_pr[index]) ? CAT.pk_pr[index] : -Infinity;
 		if (metric === "length") return CAT.len_km[index];
 		if (metric === "duration") return CAT.dur[index];
 		if (metric === "northGenesis" || metric === "southGenesis") return CAT.glat[index];
@@ -1731,7 +1801,7 @@
 	function formatExtreme(index, metric) {
 		const value = extremeValue(index, metric);
 		if (metric === "intensity") return `${value.toFixed(1)} ×10⁻⁵ s⁻¹ · P${Math.round(CAT.pct_int[index])}`;
-		if (metric === "rain") return `${value.toFixed(1)} mm · P${Math.round(CAT.pct_pr[index])}`;
+		if (metric === "rain") return Number.isFinite(value) ? `${value.toFixed(1)} mm · P${Math.round(CAT.pct_pr[index])}` : "not available";
 		if (metric === "length") return `${Math.round(value).toLocaleString()} km`;
 		if (metric === "duration") return `${value} h`;
 		if (metric === "northGenesis" || metric === "southGenesis") return `${value.toFixed(2)}°N`;
@@ -1799,7 +1869,7 @@
 		}
 		const index = selected;
 		const points = trackPoints(index);
-		const rows = points.map((point, j) => [trackName(index), CAT.id[index], isoTrackTime(index, j), j * CONFIG.stepHours, point.lon, point.lat, point.vorticity, point.rain ?? "", point.speed, point.path, point.displacement]);
+		const rows = points.map((point, j) => [trackName(index), CAT.id[index], isoTrackTime(index, j), point.elapsedHours, point.lon, point.lat, point.vorticity, point.rain ?? "", point.speed, point.path, point.displacement]);
 		downloadBlob(csvText(["atlas_name", "track_id", "time_utc", "hours_since_genesis", "longitude_deg_e", "latitude_deg_n", "vorticity_450_300hpa_1e-5_s-1", "precipitation_24h_mm", "translation_speed_m_s-1", "cumulative_path_km", "displacement_from_genesis_km"], rows), "text/csv;charset=utf-8", `${trackName(index).toLowerCase().replaceAll(" ", "-")}-fixes.csv`);
 	}
 
@@ -1971,18 +2041,23 @@
 		const [start, length] = OFF[index];
 		const points = [];
 		let path = 0;
+		const genesisTime = PTIME[start];
 		for (let j = 0; j < length; j += 1) {
 			const point = start + j;
 			const lon = PLON[point] / 100;
 			const lat = PLAT[point] / 100;
 			const step = j ? haversineKm(points[j - 1].lon, points[j - 1].lat, lon, lat) : 0;
+			const elapsedHours = PTIME[point] - genesisTime;
+			const stepHours = j ? PTIME[point] - PTIME[point - 1] : CONFIG.stepHours;
 			path += step;
 			points.push({
+				point,
 				lon,
 				lat,
+				elapsedHours,
 				vorticity: PVORT[point] / 10,
 				rain: PRAIN[point] === -32768 ? null : PRAIN[point] / 100,
-				speed: step * 1000 / (CONFIG.stepHours * 3600),
+				speed: step * 1000 / (Math.max(CONFIG.stepHours, stepHours) * 3600),
 				path,
 				displacement: j ? haversineKm(points[0].lon, points[0].lat, lon, lat) : 0
 			});
@@ -1991,7 +2066,12 @@
 	}
 
 	function evolutionValue(point, metric) {
-		return metric === "rain" ? point.rain : point[metric];
+		if (metric === "rain") return point.rain;
+		if (diagnosticArrays.has(metric)) {
+			const value = diagnosticArrays.get(metric)[point.point];
+			return Number.isFinite(value) ? value : null;
+		}
+		return point[metric];
 	}
 
 	function formatEvolutionValue(value, descriptor) {
@@ -2021,11 +2101,15 @@
 	}
 
 	function genesisMillis(index) {
-		return Date.UTC(CAT.year[index], CAT.month[index] - 1, CAT.day[index], CAT.hour[index]);
+		return fixTimeMillis(index, 0);
 	}
 
 	function lysisMillis(index) {
-		return genesisMillis(index) + (OFF[index][1] - 1) * CONFIG.stepHours * HOUR_MS;
+		return fixTimeMillis(index, OFF[index][1] - 1);
+	}
+
+	function fixTimeMillis(index, fix) {
+		return Date.parse(META.time_epoch) + PTIME[OFF[index][0] + fix] * HOUR_MS;
 	}
 
 	function genesisDate(index) {
@@ -2037,12 +2121,12 @@
 	}
 
 	function formatTrackTime(index, fix) {
-		const date = new Date(genesisMillis(index) + fix * CONFIG.stepHours * 3600000);
+		const date = new Date(fixTimeMillis(index, fix));
 		return `${String(date.getUTCDate()).padStart(2, "0")} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()} ${String(date.getUTCHours()).padStart(2, "0")}:00 UTC`;
 	}
 
 	function isoTrackTime(index, fix) {
-		return new Date(genesisMillis(index) + fix * CONFIG.stepHours * 3600000).toISOString().replace(".000Z", "Z");
+		return new Date(fixTimeMillis(index, fix)).toISOString().replace(".000Z", "Z");
 	}
 
 	function prepareCanvas(canvas) {
@@ -2093,20 +2177,27 @@
 
 	function drawLineSeries(context, values, x, y, colour, fill, plot) {
 		if (!values.length) return;
-		if (fill) {
+		const segments = [];
+		let segment = [];
+		values.forEach((value, index) => {
+			if (value != null && Number.isFinite(value)) segment.push([index, value]);
+			else if (segment.length) { segments.push(segment); segment = []; }
+		});
+		if (segment.length) segments.push(segment);
+		if (fill) for (const points of segments) {
 			const gradient = context.createLinearGradient(0, plot.top, 0, plot.bottom);
 			gradient.addColorStop(0, withAlpha(colour, 0.26));
 			gradient.addColorStop(1, withAlpha(colour, 0.02));
 			context.beginPath();
-			context.moveTo(x(0), plot.bottom);
-			values.forEach((value, index) => context.lineTo(x(index), y(value)));
-			context.lineTo(x(values.length - 1), plot.bottom);
+			context.moveTo(x(points[0][0]), plot.bottom);
+			for (const [index, value] of points) context.lineTo(x(index), y(value));
+			context.lineTo(x(points.at(-1)[0]), plot.bottom);
 			context.closePath();
 			context.fillStyle = gradient;
 			context.fill();
 		}
 		context.beginPath();
-		values.forEach((value, index) => index === 0 ? context.moveTo(x(index), y(value)) : context.lineTo(x(index), y(value)));
+		for (const points of segments) points.forEach(([index, value], pointIndex) => pointIndex === 0 ? context.moveTo(x(index), y(value)) : context.lineTo(x(index), y(value)));
 		context.strokeStyle = colour;
 		context.lineWidth = 2.2;
 		context.lineJoin = "round";
