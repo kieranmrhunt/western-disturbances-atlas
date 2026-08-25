@@ -84,6 +84,8 @@ python scripts/build_weather_videos.py \
   --finalize
 ```
 
+For an unattended build, submit that finalization with `--dependency=afterok:<array-job-id>` using `scripts/finalize_weather_archive.slurm`.
+
 Each WebM frame stores colour in its left half and an opacity mask as right-half luma. The frontend reconstructs RGBA in a canvas. Vorticity uses one frame per ERA5 three-hourly analysis; precipitation uses one frame per hour.
 
 ## Rebuilding the split assets
