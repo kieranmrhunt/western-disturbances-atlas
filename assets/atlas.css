@@ -188,6 +188,7 @@
 	overflow: clip;
 }
 .mla-filter-primary { display: grid; grid-template-columns: minmax(210px, 1.3fr) minmax(280px, 1fr) minmax(170px, .7fr); gap: 10px; padding: 12px; align-items: end; }
+.mla-filter-primary.wd-filter-primary { grid-template-columns: minmax(240px, 1fr) minmax(420px, 1.35fr); }
 .mla-field { display: grid; gap: 5px; min-width: 0; }
 .mla-label { font-size: 12px; font-weight: 500; color: var(--mla-muted); }
 .mla-control,
@@ -233,6 +234,7 @@
 .mla-percentile-filter { display: grid; gap: 5px; min-width: 0; }
 .mla-percentile-filter output { font-family: var(--mla-font); color: var(--mla-ink); }
 .mla-chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.wd-season-presets { margin-top: 7px; }
 .mla-filter-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--mla-line); padding: 9px 13px; }
 .mla-result-count { font-family: var(--mla-font); font-size: 13px; }
 .mla-caution { margin: 8px 0 0; color: var(--mla-muted); font-size: 12px; }
@@ -449,6 +451,7 @@
 	.mla-header-actions { justify-content: flex-start; margin-top: 12px; }
 	.mla-title { font-size: clamp(36px, 12vw, 52px); }
 	.mla-filter-primary,
+	.mla-filter-primary.wd-filter-primary,
 	.mla-filter-grid,
 	.mla-chart-grid,
 	.mla-method-grid,

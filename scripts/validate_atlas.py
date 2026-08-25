@@ -44,6 +44,11 @@ def main() -> None:
     check(config.get("weatherBase"), "Weather base URL is not configured")
     check(config.get("weatherSteps", {}).get("vorticity350") == 3, "350-hPa weather timing must be three-hourly")
     check('<option value="tracks">Individual tracks</option>' in html, "Individual tracks are not the first map-layer option")
+    check('<option value="none">None: selected track only</option>' in html, "Selected-track-only map layer is missing")
+    check('id="wdDateMin" type="date"' in html and 'id="wdDateMax" type="date"' in html, "Exact date controls are missing")
+    check('data-season="ndjfma"' in html and 'data-season="djfm"' in html, "WD season presets are missing")
+    check('id="wdGenesisRegionChips"' in html, "Genesis-region controls are missing")
+    check("rainfall" not in html.lower(), "User-facing rainfall terminology remains in index.html")
 
     manifest_path = ROOT / "assets" / "atlas-build-manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

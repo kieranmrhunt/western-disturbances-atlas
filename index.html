@@ -4,13 +4,13 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="theme-color" content="#f7f1e2">
-	<meta name="description" content="Explore 16,850 ERA5-tracked western disturbances from 1950 to 2025, including trajectories, upper-tropospheric vorticity, rainfall impacts, climatology and extremes.">
+	<meta name="description" content="Explore 16,850 ERA5-tracked western disturbances from 1950 to 2025, including trajectories, upper-tropospheric vorticity, precipitation impacts, climatology and extremes.">
 	<title>Western Disturbances Atlas</title>
 	<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317294f'/%3E%3Cpath d='M10 17h9l6 29 7-21 7 21 6-29h9L44 51h-9l-3-10-3 10h-9z' fill='%23fffaf0'/%3E%3C/svg%3E">
 	<link rel="preconnect" href="https://use.typekit.net" crossorigin>
 	<link rel="preconnect" href="https://p.typekit.net" crossorigin>
 	<link rel="stylesheet" href="https://use.typekit.net/pxa6ohj.css">
-	<link rel="stylesheet" href="assets/atlas.css?v=d581fefc5347">
+	<link rel="stylesheet" href="assets/atlas.css?v=7bd7c7d12df9">
 </head>
 <body>
 <div id="western-disturbances-atlas">
@@ -22,7 +22,6 @@
 				<div>
 					<div class="mla-eyebrow">ERA5 · 3-hourly Lagrangian catalogue · 1950–2025</div>
 					<h1 class="mla-title">Western Disturbances Atlas</h1>
-					<div class="mla-eyebrow mla-eyebrow-below">Upper-tropospheric dynamics and precipitation across High Mountain Asia</div>
 				</div>
 				<div class="mla-header-actions">
 					<span class="mla-badge" data-tone="official">WD v5 atlas snapshot</span>
@@ -49,51 +48,61 @@
 		</div>
 
 		<section class="mla-filter-dock" id="wdFilters" aria-label="Catalogue filters" hidden>
-			<div class="mla-filter-primary">
+			<div class="mla-filter-primary wd-filter-primary">
 				<label class="mla-field" for="wdSearch">
 					<span class="mla-label">Find a disturbance</span>
-					<input class="mla-control" id="wdSearch" type="search" placeholder="WD ID or genesis date (YYYY-MM-DD)">
+					<input class="mla-control" id="wdSearch" type="search" placeholder="WD YYYY XXX, catalogue ID or genesis date">
 				</label>
 				<div class="mla-field">
-					<span class="mla-label">Genesis year</span>
-					<div class="mla-year-fields">
+					<div class="mla-period-head"><span class="mla-label" id="wdPeriodLabel">Genesis years</span><div class="mla-period-toggle" role="group" aria-label="Filter by genesis years or active dates"><button class="mla-btn mla-btn-small" id="wdTimeModeYears" type="button" aria-pressed="true">Years</button><button class="mla-btn mla-btn-small" id="wdTimeModeDates" type="button" aria-pressed="false">Dates</button></div></div>
+					<div class="mla-year-fields" id="wdYearFields">
 						<input class="mla-control" id="wdYearMin" type="number" min="1950" max="2025" value="1950" aria-label="First genesis year">
 						<span>to</span>
 						<input class="mla-control" id="wdYearMax" type="number" min="1950" max="2025" value="2025" aria-label="Last genesis year">
 					</div>
-				</div>
-				<div class="mla-field">
-					<span class="mla-label">Quick season</span>
-					<select class="mla-select" id="wdSeason">
-						<option value="djfm">Winter · Dec–Mar</option>
-						<option value="all">All months</option>
-						<option value="amj">Spring · Apr–Jun</option>
-						<option value="jjas">Summer monsoon · Jun–Sep</option>
-						<option value="on">Autumn · Oct–Nov</option>
-					</select>
+					<div class="mla-date-fields" id="wdDateFields" hidden>
+						<label for="wdDateMin"><span>From (YYYY-MM-DD)</span><input class="mla-control" id="wdDateMin" type="date" min="1950-01-01" max="2025-12-31" value="1950-01-01"></label>
+						<span aria-hidden="true">–</span>
+						<label for="wdDateMax"><span>To (YYYY-MM-DD)</span><input class="mla-control" id="wdDateMax" type="date" min="1950-01-01" max="2025-12-31" value="2025-12-31"></label>
+					</div>
 				</div>
 			</div>
 
 			<div class="mla-filter-disclosures">
 				<details class="mla-filter-disclosure" open>
-					<summary>Months and impact regions</summary>
+					<summary>Genesis timing and regions</summary>
 					<div class="mla-filter-grid">
 						<div class="mla-filter-group">
 							<h3>Genesis month</h3>
 							<div class="mla-chip-row" id="wdMonthChips"></div>
+							<div class="mla-chip-row wd-season-presets" id="wdSeasonPresets" aria-label="Season presets">
+								<button class="mla-chip" type="button" data-season="djf" aria-pressed="false">DJF</button>
+								<button class="mla-chip" type="button" data-season="djfm" aria-pressed="true">DJFM</button>
+								<button class="mla-chip" type="button" data-season="mam" aria-pressed="false">MAM</button>
+								<button class="mla-chip" type="button" data-season="amj" aria-pressed="false">AMJ</button>
+								<button class="mla-chip" type="button" data-season="jjas" aria-pressed="false">JJAS</button>
+								<button class="mla-chip" type="button" data-season="on" aria-pressed="false">ON</button>
+								<button class="mla-chip" type="button" data-season="ndjfma" aria-pressed="false">NDJFMA</button>
+								<button class="mla-chip" type="button" data-season="all" aria-pressed="false">All</button>
+							</div>
 						</div>
 						<div class="mla-filter-group">
-							<h3>Dominant 24 h rainfall region</h3>
+							<h3>Genesis region</h3>
+							<div class="mla-chip-row" id="wdGenesisRegionChips"></div>
+							<p class="mla-caution">Review-paper winter clusters; distant genesis points are grouped as Other.</p>
+						</div>
+						<div class="mla-filter-group">
+							<h3>Dominant 24 h precipitation region</h3>
 							<div class="mla-chip-row" id="wdRegionChips"></div>
 							<p class="mla-caution">A system is assigned to the analysis box with its largest peak regional precipitation.</p>
 						</div>
 					</div>
 				</details>
 				<details class="mla-filter-disclosure">
-					<summary>Intensity, rainfall and trajectory</summary>
+					<summary>Intensity, precipitation and trajectory</summary>
 					<div class="mla-percentile-grid wd-filter-metrics">
 						<label class="mla-percentile-filter" for="wdIntensityMin"><span class="mla-label">Minimum vorticity percentile</span><input class="mla-range" id="wdIntensityMin" type="range" min="0" max="99" value="0"><output id="wdIntensityOutput">P0+</output></label>
-						<label class="mla-percentile-filter" for="wdRainMin"><span class="mla-label">Minimum rainfall percentile</span><input class="mla-range" id="wdRainMin" type="range" min="0" max="99" value="0"><output id="wdRainOutput">P0+</output></label>
+						<label class="mla-percentile-filter" for="wdRainMin"><span class="mla-label">Minimum precipitation percentile</span><input class="mla-range" id="wdRainMin" type="range" min="0" max="99" value="0"><output id="wdRainOutput">P0+</output></label>
 						<label class="mla-field" for="wdLengthMin"><span class="mla-label">Minimum path length (km)</span><input class="mla-control" id="wdLengthMin" type="number" min="0" max="9000" step="100" value="0"></label>
 						<label class="mla-field" for="wdDurationMin"><span class="mla-label">Minimum duration (h)</span><input class="mla-control" id="wdDurationMin" type="number" min="0" max="300" step="3" value="0"></label>
 					</div>
@@ -109,17 +118,16 @@
 		</section>
 
 		<section class="mla-panel" id="wdPanelExplore" role="tabpanel" aria-labelledby="wdTabExplore" data-panel="explore">
-			<div class="mla-panel-heading"><h2>System explorer</h2><p>Filter the catalogue, inspect spatial patterns, then select any trajectory or table row for its three-hourly dossier.</p></div>
+			<div class="mla-panel-heading"><h2>System explorer</h2></div>
 			<div class="mla-stat-grid" id="wdStats"></div>
 			<div class="mla-explore-grid">
 				<section class="mla-card mla-map-card" aria-labelledby="wdMapHeading">
 					<div class="mla-map-head">
 						<h3 id="wdMapHeading">Tracks and density</h3>
 						<div class="mla-map-tools">
-							<label class="mla-map-control" for="wdMapLayer"><span>Layer</span><select class="mla-select" id="wdMapLayer"><option value="tracks">Individual tracks</option><option value="density">Unique-track density</option><option value="genesis">Genesis locations</option><option value="lysis">Lysis locations</option><option value="auto">Auto: density then tracks</option></select></label>
-							<label class="mla-map-control" for="wdMapColour"><span>Colour</span><select class="mla-select" id="wdMapColour"><option value="single">Single atlas blue</option><option value="intensity">Peak vorticity percentile</option><option value="region">Dominant rain region</option><option value="year">Genesis year</option></select></label>
+							<label class="mla-map-control" for="wdMapLayer"><span>Layer</span><select class="mla-select" id="wdMapLayer"><option value="tracks">Individual tracks</option><option value="none">None: selected track only</option><option value="density">Unique-track density</option><option value="genesis">Genesis locations</option><option value="lysis">Lysis locations</option><option value="auto">Auto: density then tracks</option></select></label>
+							<label class="mla-map-control" for="wdMapColour"><span>Colour</span><select class="mla-select" id="wdMapColour"><option value="single">Single atlas blue</option><option value="intensity">Peak vorticity percentile</option><option value="region">Dominant precipitation region</option><option value="year">Genesis year</option></select></label>
 							<label class="mla-map-control" for="wdWeatherLayer"><span>Weather</span><select class="mla-select" id="wdWeatherLayer"><option value="none">No weather field</option><option value="vorticity350">Positive 350-hPa vorticity</option><option value="precipitation">Trailing 24 h precipitation</option></select></label>
-							<label class="mla-map-toggle" for="wdSubsetTracks"><input id="wdSubsetTracks" type="checkbox" checked> Subset tracks</label>
 							<label class="mla-map-toggle" for="wdRegionBoxes"><input id="wdRegionBoxes" type="checkbox" checked> Impact boxes</label>
 							<div class="mla-map-nav-buttons" role="group" aria-label="Map view controls"><button class="mla-btn mla-btn-icon mla-btn-small" id="wdZoomOut" type="button" aria-label="Zoom out">−</button><button class="mla-btn mla-btn-small" id="wdZoomReset" type="button">Reset view</button><button class="mla-btn mla-btn-small" id="wdFitSubset" type="button">Fit subset</button><button class="mla-btn mla-btn-icon mla-btn-small" id="wdZoomIn" type="button" aria-label="Zoom in">+</button></div>
 						</div>
@@ -143,18 +151,18 @@
 						<span class="wd-weather-status" id="wdWeatherStatus" role="status" aria-live="polite"></span>
 					</div>
 					<p class="mla-sr-only" id="wdMapDescription">Every map layer is selectable: clicking near a line or density cell chooses the geometrically nearest filtered trajectory. Open a disturbance dossier to step through its track-centred diagnostics and contemporaneous ERA5 weather.</p>
-					<div class="mla-map-foot"><span class="mla-legend" id="wdMapLegend"></span><span>Click near any track, including on density · Natural Earth boundaries</span></div>
+					<div class="mla-map-foot"><span class="mla-legend" id="wdMapLegend"></span><span>Natural Earth boundaries</span></div>
 				</section>
 				<aside class="mla-card mla-dossier" id="wdDossier" aria-live="polite"><p class="mla-dossier-empty">Select a track on the map or from a table to open its dossier.</p></aside>
 			</div>
 
 			<div class="mla-chart-grid" style="margin-top:14px">
-				<section class="mla-card mla-chart-card mla-evolution-card"><div class="mla-chart-head"><h3>Selected-system evolution</h3><label class="mla-field" for="wdEvolutionMetric"><span class="mla-label">Line variable</span><select class="mla-select" id="wdEvolutionMetric"><option value="vorticity">450–300 hPa vorticity</option><option value="rain">24 h precipitation</option></select></label></div><p>Track-centred three-hourly values; rainfall is shown as bars when vorticity is selected.</p><canvas class="mla-chart" id="wdLifeChart" role="img" tabindex="0" aria-label="Evolution of the selected western disturbance"></canvas><p class="mla-chart-readout" id="wdLifeReadout" role="status" aria-live="polite">Select a disturbance to inspect its evolution.</p><details class="mla-a11y-data"><summary>Accessible selected-system values</summary><div id="wdLifeData"></div></details></section>
-				<section class="mla-card mla-chart-card mla-evolution-card"><div class="mla-chart-head"><h3>Subset evolution</h3><label class="mla-field" for="wdProfileMetric"><span class="mla-label">Variable</span><select class="mla-select" id="wdProfileMetric"><option value="vorticity">450–300 hPa vorticity</option><option value="rain">24 h precipitation</option></select></label></div><p>Median and interquartile range by life fraction; each filtered disturbance contributes once per bin.</p><canvas class="mla-chart" id="wdProfileChart" role="img" aria-label="Median lifecycle of the filtered subset"></canvas><p class="mla-chart-readout" id="wdProfileReadout" role="status" aria-live="polite"></p><details class="mla-a11y-data"><summary>Accessible subset summary</summary><div id="wdProfileData"></div></details></section>
+				<section class="mla-card mla-chart-card mla-evolution-card"><div class="mla-chart-head"><h3>Selected-system evolution</h3><label class="mla-field" for="wdEvolutionMetric"><span class="mla-label">Line variable</span><select class="mla-select" id="wdEvolutionMetric"><option value="vorticity">450–300 hPa vorticity</option><option value="rain">24 h precipitation</option><option value="latitude">Latitude</option><option value="longitude">Longitude</option><option value="speed">Translation speed</option><option value="path">Cumulative path length</option><option value="displacement">Displacement from genesis</option></select></label></div><p>Stored and trajectory-derived values at each three-hourly fix; precipitation is shown as context when vorticity is selected.</p><canvas class="mla-chart" id="wdLifeChart" role="img" tabindex="0" aria-label="Evolution of the selected western disturbance"></canvas><p class="mla-chart-readout" id="wdLifeReadout" role="status" aria-live="polite">Select a disturbance to inspect its evolution.</p><details class="mla-a11y-data"><summary>Accessible selected-system values</summary><div id="wdLifeData"></div></details></section>
+				<section class="mla-card mla-chart-card mla-evolution-card"><div class="mla-chart-head"><h3>Subset evolution</h3><label class="mla-field" for="wdProfileMetric"><span class="mla-label">Variable</span><select class="mla-select" id="wdProfileMetric"><option value="vorticity">450–300 hPa vorticity</option><option value="rain">24 h precipitation</option><option value="latitude">Latitude</option><option value="longitude">Longitude</option><option value="speed">Translation speed</option><option value="path">Cumulative path length</option><option value="displacement">Displacement from genesis</option></select></label></div><p>Median and interquartile range by life fraction; each filtered disturbance contributes once per bin.</p><canvas class="mla-chart" id="wdProfileChart" role="img" aria-label="Median lifecycle of the filtered subset"></canvas><p class="mla-chart-readout" id="wdProfileReadout" role="status" aria-live="polite"></p><details class="mla-a11y-data"><summary>Accessible subset summary</summary><div id="wdProfileData"></div></details></section>
 			</div>
 
 			<section class="mla-card mla-section-card">
-				<div class="mla-toolbar"><h3>Systems in this subset</h3><div class="mla-toolbar-group"><label class="mla-field" for="wdTableSort"><span class="mla-label">Order by</span><select class="mla-select" id="wdTableSort"><option value="intensity">Peak vorticity</option><option value="rain">Peak rainfall</option><option value="length">Path length</option><option value="duration">Duration</option><option value="date">Genesis date</option></select></label></div></div>
+				<div class="mla-toolbar"><h3>Systems in this subset</h3><div class="mla-toolbar-group"><label class="mla-field" for="wdTableSort"><span class="mla-label">Order by</span><select class="mla-select" id="wdTableSort"><option value="intensity">Peak vorticity</option><option value="rain">Peak precipitation</option><option value="length">Path length</option><option value="duration">Duration</option><option value="date">Genesis date</option></select></label></div></div>
 				<div class="mla-table-wrap"><table class="mla-table" id="wdTopTable"><thead></thead><tbody></tbody></table></div>
 				<div class="mla-pagination"><span id="wdTablePage"></span><div><button class="mla-btn mla-btn-small" id="wdTablePrevious" type="button">Previous</button> <button class="mla-btn mla-btn-small" id="wdTableNext" type="button">Next</button></div></div>
 			</section>
@@ -165,7 +173,7 @@
 			<div class="mla-chart-grid">
 				<section class="mla-card mla-chart-card mla-chart-wide"><h3>Annual genesis count</h3><p>Systems beginning in each calendar year.</p><canvas class="mla-chart" id="wdAnnualChart" role="img" aria-label="Annual western-disturbance genesis count"></canvas><details class="mla-a11y-data"><summary>Accessible annual data</summary><div id="wdAnnualData"></div></details></section>
 				<section class="mla-card mla-chart-card"><h3>Seasonal cycle</h3><p>Monthly genesis count and mean peak upper-tropospheric vorticity.</p><canvas class="mla-chart" id="wdMonthChart" role="img" aria-label="Monthly western-disturbance genesis climatology"></canvas><details class="mla-a11y-data"><summary>Accessible monthly data</summary><div id="wdMonthData"></div></details></section>
-				<section class="mla-card mla-chart-card"><h3>Rainfall-impact regions</h3><p>Dominant analysis region among filtered systems.</p><canvas class="mla-chart" id="wdRegionChart" role="img" aria-label="Dominant rainfall-impact regions"></canvas><details class="mla-a11y-data"><summary>Accessible impact-region data</summary><div id="wdRegionData"></div></details></section>
+				<section class="mla-card mla-chart-card"><h3>Precipitation-impact regions</h3><p>Dominant analysis region among filtered systems.</p><canvas class="mla-chart" id="wdRegionChart" role="img" aria-label="Dominant precipitation-impact regions"></canvas><details class="mla-a11y-data"><summary>Accessible impact-region data</summary><div id="wdRegionData"></div></details></section>
 				<section class="mla-card mla-chart-card mla-chart-wide"><h3>Genesis density</h3><p>Unique genesis systems per one-degree cell; colour intensity uses a square-root count scale.</p><canvas class="mla-chart mla-genesis-chart" id="wdGenesisChart" role="img" aria-label="Western-disturbance genesis density map"></canvas></section>
 			</div>
 		</section>
@@ -182,9 +190,9 @@
 		<section class="mla-panel" id="wdPanelData" role="tabpanel" aria-labelledby="wdTabData" data-panel="data" hidden>
 			<div class="mla-panel-heading"><h2>Data, definitions and reproducibility</h2><p>The catalogue grain, upper-level diagnostic and regional-impact definitions are kept explicit.</p></div>
 			<div class="mla-method-grid">
-				<section class="mla-card mla-prose"><h3>Catalogue</h3><p><strong>WD v5 atlas snapshot</strong> contains <span id="wdMethodTracks">16,850</span> trajectories and <span id="wdMethodFixes">398,584</span> three-hourly track fixes from January 1950 through December 2025.</p><h4>Scope</h4><p>Positions and diagnostics are derived from ERA5. The atlas is a research catalogue, not an operational warning service or an official best track.</p><h4>Event identity</h4><p><code>track_id</code> identifies one Lagrangian trajectory. Genesis is its first published fix and lysis its last.</p></section>
-				<section class="mla-card mla-prose"><h3>WD-specific physics</h3><ul><li><strong>Upper-tropospheric vorticity:</strong> track-centred relative vorticity averaged through the 450–300 hPa layer and spectrally truncated to T42, reported in 10⁻⁵ s⁻¹.</li><li><strong>24 h precipitation:</strong> track-centred and regional accumulated precipitation, reported in mm.</li><li><strong>Path length:</strong> great-circle distance summed between consecutive three-hourly fixes.</li><li><strong>Percentiles:</strong> fixed against all 16,850 catalogue trajectories; filters do not rescale them.</li></ul><p>The atlas intentionally omits LPS-specific pressure-deficit classes, IBTrACS matching, BSISO filters and Indian-state rainfall fills.</p></section>
-				<section class="mla-card mla-prose"><h3>Impact regions</h3><p>The five boxes are Karakoram (74–78°E, 35–37.5°N), Hindu Kush (68–73°E, 34–37°N), Western Himalaya (73–79°E, 30–34°N), Central Himalaya (79–86°E, 27–30.5°N), and north India (74–85°E, 25–30°N).</p><p>“Dominant” identifies the box with the largest peak 24 h precipitation for that trajectory. Boxes overlap and are transparent analytical conventions, not administrative boundaries.</p><h4>Map and weather fields</h4><p>Density counts each track at most once per one-degree cell, but remains selectable through the underlying trajectories. The time slider follows the selected track’s three-hourly centres. Weather backgrounds are independent ERA5 context fields: 350-hPa relative vorticity at 0.5° and trailing 24 h precipitation at 1°. They do not replace the track-centred catalogue diagnostics.</p></section>
+				<section class="mla-card mla-prose"><h3>Catalogue</h3><p><strong>WD v5 atlas snapshot</strong> contains <span id="wdMethodTracks">16,850</span> trajectories and <span id="wdMethodFixes">398,584</span> three-hourly track fixes from January 1950 through December 2025.</p><h4>Scope</h4><p>Positions and diagnostics are derived from ERA5. The atlas is a research catalogue, not an operational warning service or an official best track.</p><h4>Event identity</h4><p><code>track_id</code> identifies one Lagrangian trajectory. Genesis is its first published fix and lysis its last. Display names use genesis year and within-year genesis order, for example <code>WD 2017 042</code>; exports retain the catalogue ID as well.</p></section>
+				<section class="mla-card mla-prose"><h3>WD-specific physics</h3><ul><li><strong>Upper-tropospheric vorticity:</strong> track-centred relative vorticity averaged through the 450–300 hPa layer and spectrally truncated to T42, reported in 10⁻⁵ s⁻¹.</li><li><strong>24 h precipitation:</strong> track-centred and regional accumulated precipitation, reported in mm.</li><li><strong>Path length:</strong> great-circle distance summed between consecutive three-hourly fixes.</li><li><strong>Percentiles:</strong> fixed against all 16,850 catalogue trajectories; filters do not rescale them.</li></ul><p>The atlas intentionally omits LPS-specific pressure-deficit classes, IBTrACS matching, BSISO filters and Indian-state precipitation fills.</p></section>
+				<section class="mla-card mla-prose"><h3>Regions</h3><p><strong>Genesis regions</strong> reproduce the four-cluster method behind <a href="https://wcd.copernicus.org/articles/6/43/2025/#Ch1.F5" target="_blank" rel="noopener">Figure 5 of the 2025 WD review</a>: North Atlantic jet stream, Alps/Northern Europe, Mediterranean and Zagros. Classification uses the original winter-catalogue k-means centres in the transformed longitude–latitude space; points beyond the 99.5% within-cluster distance envelope are labelled Other.</p><p><strong>Precipitation-impact regions:</strong> the five boxes are Karakoram (74–78°E, 35–37.5°N), Hindu Kush (68–73°E, 34–37°N), Western Himalaya (73–79°E, 30–34°N), Central Himalaya (79–86°E, 27–30.5°N), and north India (74–85°E, 25–30°N). “Dominant” identifies the box with the largest peak 24 h precipitation for that trajectory. Boxes overlap and are transparent analytical conventions, not administrative boundaries.</p><h4>Map and weather fields</h4><p>Density counts each track at most once per one-degree cell, but remains selectable through the underlying trajectories. The time slider follows the selected track’s three-hourly centres. Weather backgrounds are independent ERA5 context fields: 350-hPa relative vorticity at 0.5° and trailing 24 h precipitation at 1°. They do not replace the track-centred catalogue diagnostics.</p></section>
 				<section class="mla-card mla-prose"><h3>Download and provenance</h3><p>Exports carry the current filter state, units and WD track identifiers.</p><div class="mla-download-grid"><button class="mla-btn" id="wdDownloadSummaries" type="button">Filtered summaries CSV</button><button class="mla-btn" id="wdDownloadGeojson" type="button">Filtered tracks GeoJSON</button><button class="mla-btn" id="wdDownloadQuery" type="button">Reproducibility JSON</button><button class="mla-btn" id="wdDownloadFixes" type="button">Selected fixes CSV</button></div><h4>Release record</h4><p><a href="https://doi.org/10.5281/zenodo.8208019" target="_blank" rel="noopener">Archived 1950–2022 track release</a> · <a href="assets/atlas-build-manifest.json">split-asset checksums</a> · <a href="https://wcd.copernicus.org/articles/5/345/2024/" target="_blank" rel="noopener">WD climatology and jet-context paper</a></p><h4>Build</h4><p id="wdBuildText">This static deployment loads split gzip assets in the browser; no catalogue rows are sent to a server.</p></section>
 			</div>
 		</section>
@@ -193,8 +201,8 @@
 	</main>
 </div>
 
-<script id="wd-data-config" type="application/json">{"catalogue":"assets/wd-atlas-catalogue-v5.json.gz","fixes":"assets/wd-atlas-fixes-v5.i16.gz","catalogueVersion":"WD v5 atlas snapshot","stepHours":3,"bounds":{"west":22,"east":109,"south":6,"north":54},"weatherBase":"https://gws-access.jasmin.ac.uk/public/incompass/kieran/track_data/WD/atlas-weather-v5-r1","weatherBases":{"precipitation":"https://gws-access.jasmin.ac.uk/public/incompass/kieran/track_data/LPS/atlas-weather-v5.4.2-r3"},"weatherFormat":"webm","weatherFps":6,"weatherSteps":{"vorticity350":3,"precipitation":1},"weatherBounds":{"vorticity350":[19.875,5.125,109.875,55.125],"precipitation":[49.875,-5.875,109.875,40.125]}}</script>
+<script id="wd-data-config" type="application/json">{"catalogue":"assets/wd-atlas-catalogue-v5.json.gz","fixes":"assets/wd-atlas-fixes-v5.i16.gz","catalogueVersion":"WD v5 atlas snapshot","stepHours":3,"bounds":{"west":22,"east":109,"south":6,"north":54},"weatherBase":"https://gws-access.jasmin.ac.uk/public/incompass/kieran/track_data/WD/atlas-weather-v5-r1","weatherFormat":"webm","weatherFps":6,"weatherSteps":{"vorticity350":3,"precipitation":1},"weatherBounds":{"vorticity350":[19.875,5.125,109.875,55.125],"precipitation":[49.875,-5.875,109.875,40.125]}}</script>
 <script src="assets/map-context.js"></script>
-<script src="assets/atlas-app.js?v=bd3ad8392889"></script>
+<script src="assets/atlas-app.js?v=b363b0d75168"></script>
 </body>
 </html>

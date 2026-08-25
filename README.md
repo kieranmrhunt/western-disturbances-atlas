@@ -8,23 +8,25 @@ The interface shares the visual language and main workflow of the [Monsoon Low-P
 
 - `track_id` identifies one Lagrangian trajectory and is the atlas grain for maps, counts, filtering and exports.
 - Genesis and lysis are the first and last published three-hourly fixes.
+- Display names are `WD YYYY NNN`, using genesis year and within-year genesis order; the original `track_id` remains in exports and deep links.
 - Intensity is track-centred relative vorticity averaged through the 450–300 hPa layer, spectrally truncated to T42, in 10⁻⁵ s⁻¹. This is the upper-tropospheric WD diagnostic; the site does not substitute 850-hPa LPS vorticity.
 - Precipitation is the catalogue's track-centred or regional 24 h diagnostic in mm.
 - Vorticity, precipitation and path-length percentiles are fixed against the complete 16,850-track snapshot. Filtering does not rescale them.
 - Density counts each trajectory once per one-degree grid cell. Density remains selectable through a geographical segment index built from the underlying trajectories.
-- The five rainfall-impact boxes are transparent analysis regions, not administrative boundaries. “Dominant” is the box with the largest peak 24 h precipitation for a trajectory.
+- The five precipitation-impact boxes are transparent analysis regions, not administrative boundaries. “Dominant” is the box with the largest peak 24 h precipitation for a trajectory.
+- Genesis locations use the four winter k-means clusters from Figure 5 of the 2025 WD review (North Atlantic jet stream, Alps/Northern Europe, Mediterranean and Zagros), with distant points assigned to `Other` using the original clusters' 99.5% distance envelopes.
 - ERA5-derived catalogue extremes are internal diagnostics, not authoritative meteorological records.
 - The selected-track time control follows catalogue fixes and their 450–300 hPa vorticity. Independent gridded ERA5 backgrounds provide 350-hPa vorticity and trailing 24 h precipitation at the same valid time.
 
-The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSISO filters, cyclone names and Indian-state rainfall fills.
+The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSISO filters, cyclone names and Indian-state precipitation fills.
 
 ## Features
 
-- Shared global filters for genesis date, months, upper-level vorticity percentile, precipitation percentile, path length, duration and dominant impact region.
+- Shared global filters for genesis years or exact active-date ranges, genesis month/season, review-paper genesis region, upper-level vorticity percentile, precipitation percentile, path length, duration and dominant impact region.
 - Deep-linkable filter, tab, map and selection state.
-- Individual tracks by default, plus unique-track density, genesis and lysis layers; every layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order. The filtered-track background can be hidden while retaining the selected trajectory in black.
+- Individual tracks by default, plus unique-track density, genesis, lysis and selected-track-only layers; every data layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order. The selected trajectory is black.
 - Contemporaneous ERA5 overlays for three-hourly positive 350-hPa vorticity at 0.5° and hourly trailing 24 h precipitation at 1°.
-- Per-track dossiers, three-hourly time stepping, regional rainfall diagnostics and accessible lifecycle values.
+- Per-track dossiers, three-hourly time stepping, regional precipitation diagnostics and accessible lifecycle plots for stored vorticity, precipitation, position and trajectory-derived speed, cumulative path and displacement.
 - Filter-aware annual, seasonal, impact-region and genesis-density climatologies.
 - Filter-aware catalogue extremes.
 - Summary CSV, track GeoJSON, reproducibility JSON and selected-fix CSV exports.
