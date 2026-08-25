@@ -22,7 +22,7 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 
 - Shared global filters for genesis date, months, upper-level vorticity percentile, precipitation percentile, path length, duration and dominant impact region.
 - Deep-linkable filter, tab, map and selection state.
-- Individual tracks by default, plus unique-track density, genesis and lysis layers; every layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order.
+- Individual tracks by default, plus unique-track density, genesis and lysis layers; every layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order. The filtered-track background can be hidden while retaining the selected trajectory in black.
 - Contemporaneous ERA5 overlays for three-hourly positive 350-hPa vorticity at 0.5° and hourly trailing 24 h precipitation at 1°.
 - Per-track dossiers, three-hourly time stepping, regional rainfall diagnostics and accessible lifecycle values.
 - Filter-aware annual, seasonal, impact-region and genesis-density climatologies.

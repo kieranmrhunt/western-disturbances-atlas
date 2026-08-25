@@ -261,6 +261,25 @@
 #wdMapWeather { pointer-events: none; }
 #mlaMapOverlay { cursor: grab; touch-action: none; }
 #mlaMapOverlay.is-dragging { cursor: grabbing; }
+.wd-weather-message {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	z-index: 7;
+	pointer-events: none;
+	max-width: min(360px, calc(100% - 24px));
+	padding: 8px 10px;
+	border: 1px solid color-mix(in srgb, var(--mla-atlas-blue) 36%, var(--mla-line));
+	border-radius: 9px;
+	background: color-mix(in srgb, var(--mla-card) 93%, transparent);
+	box-shadow: 0 10px 24px -16px rgba(0, 0, 0, .55);
+	color: var(--mla-ink);
+	font-size: 12px;
+}
+.wd-weather-message[data-tone="error"] {
+	border-color: color-mix(in srgb, var(--mla-madder) 50%, var(--mla-line));
+	background: color-mix(in srgb, var(--mla-card) 91%, var(--mla-madder));
+}
 .mla-map-tip {
 	position: absolute;
 	z-index: 8;

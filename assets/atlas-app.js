@@ -70,6 +70,7 @@
 		query: "",
 		mapLayer: "tracks",
 		mapColour: "single",
+		showSubsetTracks: true,
 		showRegionBoxes: true,
 		weatherLayer: "none"
 	};
@@ -201,7 +202,7 @@
 			};
 		}
 
-		query(screenX, screenY, radiusPx) {
+		query(screenX, screenY, radiusPx, onlyTrack = -1) {
 			const geographical = screenToLonLat(screenX, screenY);
 			const radiusLon = radiusPx / map.width * (map.view.east - map.view.west);
 			const radiusLat = radiusPx / map.height * (map.view.north - map.view.south);
@@ -217,7 +218,7 @@
 						if (this.seen[segment] === this.stamp) continue;
 						this.seen[segment] = this.stamp;
 						const track = this.owner[segment];
-						if (!filteredBit[track]) continue;
+						if (!filteredBit[track] || (onlyTrack >= 0 && track !== onlyTrack)) continue;
 						const distance = pointSegmentDistanceSquared(
 							screenX, screenY,
 							projectX(this.x1[segment]), projectY(this.y1[segment]),
@@ -314,6 +315,13 @@
 			drawMap();
 			scheduleUrlUpdate();
 		});
+		$("#wdSubsetTracks").addEventListener("change", (event) => {
+			state.showSubsetTracks = event.target.checked;
+			hovered = -1;
+			hideMapTip();
+			drawMap();
+			scheduleUrlUpdate();
+		});
 		$("#wdWeatherLayer").addEventListener("change", (event) => {
 			state.weatherLayer = event.target.value;
 			weatherError = "";
@@ -392,6 +400,7 @@
 		$("#wdMapLayer").value = state.mapLayer;
 		$("#wdMapColour").value = state.mapColour;
 		$("#wdWeatherLayer").value = state.weatherLayer;
+		$("#wdSubsetTracks").checked = state.showSubsetTracks;
 		$("#wdRegionBoxes").checked = state.showRegionBoxes;
 		updateWeatherControls();
 		syncMonthChips();
@@ -681,8 +690,7 @@
 		weatherVideo.addEventListener("canplay", drawMapWeather);
 		weatherVideo.addEventListener("error", () => {
 			if (!weatherField) return;
-			const definition = WEATHER_FIELDS[weatherField];
-			weatherError = `${definition ? definition.label : "Weather"} is unavailable for ${weatherMonth}`;
+			weatherError = unavailableWeatherMessage(weatherField, weatherMonth);
 			weatherLoading = false;
 			updateWeatherControls();
 			drawMapWeather();
@@ -762,7 +770,8 @@
 			await seekWeather(timeMillis);
 		} catch (error) {
 			if (String(error && error.message).includes("Superseded")) return;
-			weatherError = error && error.message ? error.message : String(error);
+			if (serial !== weatherSyncSerial) return;
+			if (!weatherError) weatherError = error && error.message ? `${error.message}. No weather overlay is shown.` : String(error);
 		} finally {
 			if (serial === weatherSyncSerial) weatherLoading = false;
 		}
@@ -774,6 +783,7 @@
 	function updateWeatherControls() {
 		const definition = WEATHER_FIELDS[state.weatherLayer];
 		const key = $("#wdWeatherKey");
+		const mapMessage = $("#wdWeatherMessage");
 		key.hidden = !definition;
 		$("#wdRetryWeather").hidden = !weatherError;
 		$("#wdWeatherLayer").value = state.weatherLayer;
@@ -788,10 +798,20 @@
 		else if (definition && selected >= 0) message = `${definition.label} · ${formatTrackTime(selected, focusFix)}`;
 		else if (definition) message = "Select a track to choose the weather time.";
 		$("#wdWeatherStatus").textContent = message;
+		mapMessage.hidden = !(weatherError || (weatherLoading && definition));
+		mapMessage.textContent = weatherError || (weatherLoading && definition ? `Loading ${definition.label}…` : "");
+		mapMessage.dataset.tone = weatherError ? "error" : "loading";
 		$("#wdTimeControls").hidden = selected < 0 && state.weatherLayer === "none";
 		$("#wdTrackFix").disabled = selected < 0;
 		$("#wdPreviousFix").disabled = selected < 0 || focusFix <= 0;
 		$("#wdNextFix").disabled = selected < 0 || focusFix >= (selected < 0 ? 0 : OFF[selected][1] - 1);
+	}
+
+	function unavailableWeatherMessage(field, month) {
+		const definition = WEATHER_FIELDS[field];
+		const monthLabel = /^\d{6}$/.test(month) ? `${MONTHS[Number(month.slice(4, 6)) - 1]} ${month.slice(0, 4)}` : month;
+		if (field === "vorticity350") return `No 350-hPa vorticity is available for ${monthLabel} yet. The public archive is being backfilled; no weather overlay is shown.`;
+		return `${definition ? definition.label : "Weather"} is unavailable for ${monthLabel}. No weather overlay is shown.`;
 	}
 
 	function maskedWeatherFrame() {
@@ -891,7 +911,9 @@
 		map.rendered = [];
 		const layer = resolvedMapLayer();
 		if (layer === "density") drawDensity(context);
-		else if (layer === "tracks") drawTracks(context);
+		else if (layer === "tracks") {
+			if (state.showSubsetTracks) drawTracks(context);
+		}
 		else drawEndpoints(context, layer === "lysis");
 		updateMapLegend(layer);
 	}
@@ -988,7 +1010,14 @@
 		const context = map.overlayContext;
 		context.clearRect(0, 0, map.width, map.height);
 		if (hovered >= 0 && hovered !== selected) drawHighlightedTrack(context, hovered, "#fffaf0", 3, false);
-		if (selected >= 0) drawHighlightedTrack(context, selected, colourForTrack(selected), 3.2, true);
+		if (selected >= 0) {
+			context.save();
+			context.lineJoin = "round";
+			context.lineCap = "round";
+			drawTrackPath(context, selected, css("--mla-card", "#fffaf0"), 6.4, 0.95);
+			context.restore();
+			drawHighlightedTrack(context, selected, css("--mla-ink", "#17130f"), 3.2, true);
+		}
 	}
 
 	function drawHighlightedTrack(context, index, colour, width, showFocus) {
@@ -1070,7 +1099,8 @@
 			return best;
 		}
 		const radius = layer === "density" ? Math.max(tolerance, 16) : tolerance;
-		return segmentIndex.query(screenX, screenY, radius);
+		if (layer === "tracks" && !state.showSubsetTracks && selected < 0) return -1;
+		return segmentIndex.query(screenX, screenY, radius, layer === "tracks" && !state.showSubsetTracks ? selected : -1);
 	}
 
 	function nearestFix(index, screenX, screenY) {
@@ -1091,9 +1121,9 @@
 		const legend = $("#wdMapLegend");
 		if (layer === "density") {
 			legend.innerHTML = '<span class="mla-legend-item"><span class="mla-swatch" style="background:linear-gradient(90deg,#d7e7df,#08736f,#17294f)"></span>Unique-track density · 1° cells</span>';
-			return;
-		}
-		if (state.mapColour === "region") {
+		} else if (layer === "tracks" && !state.showSubsetTracks) {
+			legend.innerHTML = '<span class="mla-legend-item">Subset tracks hidden</span>';
+		} else if (state.mapColour === "region") {
 			legend.innerHTML = REGION_LABELS.map((label, index) => `<span class="mla-legend-item"><span class="mla-swatch" style="background:${REGION_COLORS[index]}"></span>${label}</span>`).join("");
 		} else if (state.mapColour === "intensity") {
 			legend.innerHTML = '<span class="mla-legend-item"><span class="mla-swatch" style="background:linear-gradient(90deg,#3978a8,#08736f,#c3931d,#aa3d2d,#8f2938)"></span>Peak 450–300 hPa vorticity percentile</span>';
@@ -1102,7 +1132,7 @@
 		} else {
 			legend.innerHTML = `<span class="mla-legend-item"><span class="mla-swatch" style="background:${css("--mla-atlas-blue", "#3978a8")}"></span>${layer === "tracks" ? "Individual trajectories" : layer === "genesis" ? "Genesis locations" : "Lysis locations"}</span>`;
 		}
-		if (selected >= 0) legend.insertAdjacentHTML("beforeend", '<span class="wd-map-marker-key"><i></i><i></i> genesis / lysis</span>');
+		if (selected >= 0) legend.insertAdjacentHTML("beforeend", `<span class="mla-legend-item"><span class="mla-swatch" style="background:${css("--mla-ink", "#17130f")}"></span>Selected trajectory</span><span class="wd-map-marker-key"><i></i><i></i> genesis / lysis</span>`);
 	}
 
 	function colourForTrack(index) {
@@ -1716,6 +1746,7 @@
 		if (["auto", "density", "tracks", "genesis", "lysis"].includes(params.get("layer"))) state.mapLayer = params.get("layer");
 		if (["single", "intensity", "region", "year"].includes(params.get("colour"))) state.mapColour = params.get("colour");
 		if (["none", "vorticity350", "precipitation"].includes(params.get("weather"))) state.weatherLayer = params.get("weather");
+		if (params.get("tracks") === "0") state.showSubsetTracks = false;
 		if (params.get("boxes") === "0") state.showRegionBoxes = false;
 		if (["explore", "climatology", "extremes", "data"].includes(params.get("tab"))) activeTab = params.get("tab");
 		if (params.has("selected")) selected = idToIndex.get(params.get("selected")) ?? -1;
@@ -1747,6 +1778,7 @@
 		if (state.mapLayer !== "tracks") params.set("layer", state.mapLayer);
 		if (state.mapColour !== "single") params.set("colour", state.mapColour);
 		if (state.weatherLayer !== "none") params.set("weather", state.weatherLayer);
+		if (!state.showSubsetTracks) params.set("tracks", "0");
 		if (!state.showRegionBoxes) params.set("boxes", "0");
 		if (activeTab !== "explore") params.set("tab", activeTab);
 		if (selected >= 0) params.set("selected", CAT.id[selected]);
