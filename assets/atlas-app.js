@@ -2064,7 +2064,7 @@
 			drawProfilePanel(chart, summary, reference, descriptor, metric);
 			tables.push(`<h4>${escapeHtml(descriptor.label)}</h4>${accessibleTable(["Life fraction (%)", "Systems", "Lower quartile", "Median", "Upper quartile", "All-catalogue median"], summary.map((row, index) => [row.life, row.n, formatNumber(row.q1, descriptor.decimals), formatNumber(row.median, descriptor.decimals), formatNumber(row.q3, descriptor.decimals), formatNumber(reference[index].median, descriptor.decimals)]))}`);
 		}
-		$("#wdProfileReadout").textContent = `${filtered.length.toLocaleString()} systems · axes fitted to the filtered subset's 2nd–98th percentile range`;
+		$("#wdProfileReadout").textContent = `${filtered.length.toLocaleString()} systems`;
 		$("#wdProfileData").innerHTML = tables.join("");
 	}
 
@@ -2088,14 +2088,14 @@
 		}
 		const summary = bins.map((values, index) => {
 			values.sort((a, b) => a - b);
-			return { life: index * 5, p02: quantile(values, 0.02), q1: quantile(values, 0.25), median: quantile(values, 0.5), q3: quantile(values, 0.75), p98: quantile(values, 0.98), n: values.length };
+			return { life: index * 5, q1: quantile(values, 0.25), median: quantile(values, 0.5), q3: quantile(values, 0.75), n: values.length };
 		});
 		return summary;
 	}
 
 	function drawProfilePanel(chart, summary, reference, descriptor, metric) {
 		const { context, width, height } = chart;
-		const range = metricRange(summary.flatMap((row) => [row.p02, row.p98]), descriptor.zeroBased);
+		const range = metricRange(summary.flatMap((row) => [row.q1, row.q3]), false);
 		const plot = chartFrame(context, width, height, { left: 52, right: 22, top: 18, bottom: 38, yMin: range.minimum, yMax: range.maximum, yLabel: descriptor.yLabel, xLabel: "Life fraction (%)" });
 		const binCount = summary.length;
 		const x = (index) => plot.left + index / (binCount - 1) * plot.width;
