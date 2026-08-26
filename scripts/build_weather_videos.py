@@ -159,6 +159,15 @@ def time_name(field: xr.DataArray) -> str:
 	raise KeyError(f"No time coordinate among {list(field.coords)}")
 
 
+def collapse_expver(field: xr.DataArray) -> xr.DataArray:
+	"""Collapse ERA5's provisional/final stream coordinate when present."""
+	if "expver" in field.dims:
+		return field.max("expver", skipna=True)
+	if "expver" in field.coords:
+		return field.drop_vars("expver")
+	return field
+
+
 def vorticity350(dataset: xr.Dataset) -> xr.DataArray:
 	name = next((key for key in ("vo", "relative_vorticity", "vorticity") if key in dataset), None)
 	if name is None:
@@ -262,23 +271,23 @@ def load_field(
 	datasets = [xr.open_dataset(source)]
 	sources = [source]
 	if field_name == "vorticity350":
-		field = vorticity350(datasets[0])
+		field = collapse_expver(vorticity350(datasets[0]))
+		supplement = source.parent / "_supplements" / source.name
+		if supplement.is_file():
+			datasets.append(xr.open_dataset(supplement))
+			extra = collapse_expver(vorticity350(datasets[-1]))
+			field = xr.concat((field, extra), dim="time").sortby("time")
+			_, unique = np.unique(np.asarray(field.time.values), return_index=True)
+			field = field.isel(time=np.sort(unique))
+			sources.append(supplement)
 	elif field_name == "precipitation":
-		field = precipitation(datasets[0])
-		if "expver" in field.dims:
-			field = field.max("expver", skipna=True)
-		elif "expver" in field.coords:
-			field = field.drop_vars("expver")
+		field = collapse_expver(precipitation(datasets[0]))
 		previous_month = (pd.Period(month, freq="M") - 1).strftime("%Y%m")
 		previous_source = source.parent / f"{previous_month}.nc"
 		if not previous_source.is_file():
 			raise FileNotFoundError(f"24-hour accumulation requires {previous_source}")
 		datasets.append(xr.open_dataset(previous_source))
-		previous = precipitation(datasets[-1])
-		if "expver" in previous.dims:
-			previous = previous.max("expver", skipna=True)
-		elif "expver" in previous.coords:
-			previous = previous.drop_vars("expver")
+		previous = collapse_expver(precipitation(datasets[-1]))
 		previous = previous.isel(time=slice(-23, None))
 		current_times = np.asarray(field.time.values)
 		field = xr.concat((previous, field), dim="time").sortby("time")
@@ -396,7 +405,9 @@ def render_chunk(args: argparse.Namespace, month: str) -> None:
 	metadata = {
 		"schema": "western-disturbances-atlas-weather-chunk-v1", "field_key": args.field,
 		"month": month, "chunk_index": args.chunk_index, "chunks_per_month": args.chunks_per_month,
-		"source": str(source), "source_previous": str(sources[1]) if len(sources) > 1 else None,
+		"source": str(source),
+		"source_previous": str(sources[1]) if args.field == "precipitation" and len(sources) > 1 else None,
+		"source_supplement": str(sources[1]) if args.field == "vorticity350" and len(sources) > 1 else None,
 		"step_hours": spec["step_hours"], "frames": len(times), "width": width, "height": height,
 		"bounds_west_south_east_north": bounds, "first_time_utc": times[0].isoformat() + "Z",
 		"last_time_utc": times[-1].isoformat() + "Z", "sha256": sha256(payload),
@@ -465,6 +476,7 @@ def assemble_chunks(args: argparse.Namespace, month: str) -> None:
 	metadata = {
 		"schema": spec["schema"], "field_key": args.field, "field": spec["label"], "units": spec["units"],
 		"month": month, "source": chunks[0][1]["source"], "source_previous": chunks[0][1].get("source_previous"),
+		"source_supplement": chunks[0][1].get("source_supplement"),
 		"step_hours": spec["step_hours"], "frames_per_second": args.fps, "frames": frames,
 		"width": width, "height": height, "encoded_width": width * 2, "mask_layout": "right-half-luma",
 		"bounds_west_south_east_north": bounds, "first_time_utc": chunks[0][1]["first_time_utc"],
@@ -525,7 +537,8 @@ def render_month(args: argparse.Namespace, month: str) -> None:
 	metadata = {
 		"schema": spec["schema"], "field_key": args.field, "field": spec["label"],
 		"units": spec["units"], "month": month, "source": str(source),
-		"source_previous": str(sources[1]) if len(sources) > 1 else None,
+		"source_previous": str(sources[1]) if args.field == "precipitation" and len(sources) > 1 else None,
+		"source_supplement": str(sources[1]) if args.field == "vorticity350" and len(sources) > 1 else None,
 		"step_hours": spec["step_hours"], "frames_per_second": args.fps,
 		"frames": len(times), "width": width, "height": height,
 		"encoded_width": width * 2, "mask_layout": "right-half-luma",

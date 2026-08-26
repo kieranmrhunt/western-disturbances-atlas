@@ -21,6 +21,10 @@ CHUNKS_PER_MONTH=4
 MONTH_COUNT=912
 MONTH_TASK=$((SLURM_ARRAY_TASK_ID % MONTH_COUNT))
 CHUNK_INDEX=$((SLURM_ARRAY_TASK_ID / MONTH_COUNT))
+EXTRA_ARGS=()
+if [[ "${WD_WEATHER_OVERWRITE:-0}" == "1" ]]; then
+	EXTRA_ARGS+=(--overwrite)
+fi
 
 export MPLCONFIGDIR="${TMPDIR:-/tmp}/wd-atlas-mpl-${SLURM_JOB_ID}"
 export XDG_CACHE_HOME="${TMPDIR:-/tmp}/wd-atlas-cache-${SLURM_JOB_ID}"
@@ -33,4 +37,5 @@ cd "$ATLAS_ROOT"
 	--task-id "$MONTH_TASK" \
 	--chunk-index "$CHUNK_INDEX" \
 	--chunks-per-month "$CHUNKS_PER_MONTH" \
-	--output-dir "$OUTPUT_DIR"
+	--output-dir "$OUTPUT_DIR" \
+	"${EXTRA_ARGS[@]}"

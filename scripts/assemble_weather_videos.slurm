@@ -17,6 +17,10 @@ PYTHON="${WD_ATLAS_PYTHON:-/home/users/kieran/miniconda3/envs/py311/bin/python}"
 MONTH_MANIFEST="${1:-${ATLAS_ROOT}/data/wd-weather-months.csv}"
 OUTPUT_DIR="${2:-/home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1}"
 FIELD="${3:?weather field is required}"
+EXTRA_ARGS=()
+if [[ "${WD_WEATHER_OVERWRITE:-0}" == "1" ]]; then
+	EXTRA_ARGS+=(--overwrite)
+fi
 
 export MPLCONFIGDIR="${TMPDIR:-/tmp}/wd-atlas-mpl-${SLURM_JOB_ID}"
 export XDG_CACHE_HOME="${TMPDIR:-/tmp}/wd-atlas-cache-${SLURM_JOB_ID}"
@@ -29,4 +33,5 @@ cd "$ATLAS_ROOT"
 	--task-id "${SLURM_ARRAY_TASK_ID}" \
 	--chunks-per-month 4 \
 	--assemble-chunks \
-	--output-dir "$OUTPUT_DIR"
+	--output-dir "$OUTPUT_DIR" \
+	"${EXTRA_ARGS[@]}"

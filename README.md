@@ -107,6 +107,20 @@ workers per field and a four-hour ceiling for unusually slow reads:
 bash scripts/submit_weather_staging_serial.sh
 ```
 
+If an ERA5T source month was downloaded before its final analyses appeared,
+stage only the missing pressure-level vorticity times without rewriting the
+original multi-gigabyte month:
+
+```bash
+python scripts/fetch_vorticity_supplement.py \
+  /home/users/kieran/ncas/data/era5-incompass/ut-vort/202512.nc
+```
+
+The builder automatically merges a validated
+`ut-vort/_supplements/YYYYMM.nc` file. Set `WD_WEATHER_OVERWRITE=1` on a
+targeted chunk and assembly submission to replace an already encoded partial
+month.
+
 After the array completes, validate every month and write the public manifest:
 
 ```bash
