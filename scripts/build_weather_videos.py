@@ -265,12 +265,21 @@ def load_field(
 		field = vorticity350(datasets[0])
 	elif field_name == "precipitation":
 		field = precipitation(datasets[0])
+		if "expver" in field.dims:
+			field = field.max("expver", skipna=True)
+		elif "expver" in field.coords:
+			field = field.drop_vars("expver")
 		previous_month = (pd.Period(month, freq="M") - 1).strftime("%Y%m")
 		previous_source = source.parent / f"{previous_month}.nc"
 		if not previous_source.is_file():
 			raise FileNotFoundError(f"24-hour accumulation requires {previous_source}")
 		datasets.append(xr.open_dataset(previous_source))
-		previous = precipitation(datasets[-1]).isel(time=slice(-23, None))
+		previous = precipitation(datasets[-1])
+		if "expver" in previous.dims:
+			previous = previous.max("expver", skipna=True)
+		elif "expver" in previous.coords:
+			previous = previous.drop_vars("expver")
+		previous = previous.isel(time=slice(-23, None))
 		current_times = np.asarray(field.time.values)
 		field = xr.concat((previous, field), dim="time").sortby("time")
 		_, unique = np.unique(np.asarray(field.time.values), return_index=True)

@@ -99,7 +99,13 @@ sbatch --dependency=afterany:${assemble_job} scripts/finalize_weather_archive.sl
 Each chunk contains one quarter of a month as deterministic gzip-compressed
 RGB frames. The assembly array validates all four chunks before encoding the
 monthly WebM. Existing validated monthly videos are skipped by both stages, so
-the workflow is restartable.
+the workflow is restartable. Run the four optional fields serially to avoid
+multiple arrays competing to read the same archive; the helper uses two chunk
+workers per field and a four-hour ceiling for unusually slow reads:
+
+```bash
+bash scripts/submit_weather_staging_serial.sh
+```
 
 After the array completes, validate every month and write the public manifest:
 
@@ -115,13 +121,15 @@ For an unattended build, submit that finalization with `--dependency=afterok:<ar
 
 Each WebM frame stores colour in its left half and an opacity mask as right-half luma. The frontend reconstructs RGBA in a canvas. Vorticity and 500-hPa fields use one frame per ERA5 three-hourly analysis; precipitation and mean-sea-level pressure use one frame per hour.
 
-Impact footprints use one contribution job per active source month, followed
-by a short yearly sum-and-pack stage:
+Impact footprints use one independently verifiable job per WD, followed by a
+short yearly order-and-pack stage. Existing complete year shards are skipped,
+so this can resume without rebuilding published years:
 
 ```bash
-contribution_job=$(sbatch --parsable scripts/build_impact_contributions.slurm)
-assemble_job=$(sbatch --parsable --dependency=afterany:${contribution_job} \
-  scripts/assemble_impact_footprints.slurm)
+track_job_a=$(sbatch --parsable scripts/build_impact_tracks.slurm 0)
+track_job_b=$(sbatch --parsable scripts/build_impact_tracks.slurm 8149)
+assemble_job=$(sbatch --parsable --dependency=afterany:${track_job_a}:${track_job_b} \
+  scripts/assemble_impact_track_years.slurm)
 sbatch --dependency=afterany:${assemble_job} scripts/finalize_impact_footprints.slurm
 ```
 
@@ -130,11 +138,11 @@ shape and checksum, and writes `impact-manifest.json` to the public archive.
 Completed yearly shards are skipped, and the staging manifest remains usable
 while incomplete years are being assembled.
 
-Exceptionally slow source months can be divided into four non-overlapping time
-windows. `repair_impact_1950_chunks.slurm` does this for January–July 1950 and
-`assemble_impact_1950_months.slurm` verifies checksums, grids and continuous
-time coverage before recreating the ordinary monthly contributions. The normal
-yearly assembler can then consume them without a special-case data format.
+Each track task reads only its inclusive genesis-to-lysis interval, even when
+that interval crosses a month boundary. Per-track metadata records identity,
+time range, source files, grid, shape and checksum; a year is not published if
+any expected track is absent or invalid. The earlier monthly-contribution
+scripts remain only for provenance of already staged intermediate files.
 
 ## Rebuilding the catalogue assets
 
