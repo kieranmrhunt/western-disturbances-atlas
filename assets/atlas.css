@@ -236,6 +236,7 @@
 .mla-percentile-filter { display: grid; gap: 5px; min-width: 0; }
 .mla-percentile-filter output { font-family: var(--mla-font); color: var(--mla-ink); }
 .mla-chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.mla-chip .wd-footnote { margin-left: .4em; }
 .wd-season-presets { margin-top: 7px; }
 .mla-filter-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--mla-line); padding: 9px 13px; }
 .mla-result-count { font-family: var(--mla-font); font-size: 13px; }
