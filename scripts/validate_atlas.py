@@ -51,7 +51,7 @@ def main() -> None:
     config = json.loads(config_match.group(1))
     check(config.get("weatherBase"), "Weather base URL is not configured")
     check(config.get("catalogueVersion") == "WD v6", "Atlas is not labelled WD v6")
-    check(config.get("times"), "Actual fix-time asset is not configured")
+    check(config.get("times"), "Actual track-point-time asset is not configured")
     check(config.get("routes") and config.get("climate") and config.get("jet"), "Derived route, climate or jet asset is not configured")
     check(config.get("impactBase"), "Impact-footprint archive is not configured")
     check(config.get("weatherSteps", {}).get("vorticity350") == 3, "350-hPa weather timing must be three-hourly")
@@ -62,7 +62,10 @@ def main() -> None:
     check('data-season="ndjfma"' in html and 'data-season="djfm"' in html, "WD season presets are missing")
     check('id="wdGenesisRegionChips"' in html, "Genesis-region controls are missing")
     check('id="wdLysisRegionChips"' in html and 'id="wdRouteChips"' in html, "Lysis or route controls are missing")
-    check('id="wdJetPreset"' in html and 'id="wdVerticalChart"' in html, "Jet or vertical diagnostics are missing")
+    check('id="wdJetPreset"' not in html and 'id="wdVerticalChart"' in html, "Jet preset remains or vertical diagnostics are missing")
+    check('id="wdYearBasis"' not in html, "Year-definition selector remains")
+    check('id="wdCrossingLongitude" type="number" min="-20" max="145" step="1" value="60"' in html, "Crossing meridian does not default to 60°E")
+    check('<option value="vorticity">Vorticity</option>' in html, "Vertical vorticity option is missing or not the default")
     check('id="wdImpactChart"' in html and 'id="wdSpellChart"' in html, "Impact or sequence chart is missing")
     check("rainfall" not in html.lower(), "User-facing rainfall terminology remains in index.html")
     check("16,298" in html and "460,411" in html, "Static v6 counts are missing")
@@ -88,20 +91,20 @@ def main() -> None:
     offsets = catalogue["off"]
 
     check(meta["ntracks"] == 16_298, "Unexpected catalogue track count")
-    check(meta["npts"] == 460_411, "Unexpected catalogue fix count")
+    check(meta["npts"] == 460_411, "Unexpected catalogue track-point count")
     check(len(offsets) == meta["ntracks"], "Offset count does not match track count")
     check(all(len(values) == meta["ntracks"] for values in cat.values()), "A catalogue summary column has the wrong length")
-    check(len(fixes) == meta["npts"] * 4 * np.dtype("<i2").itemsize, "Fix payload has the wrong byte length")
+    check(len(fixes) == meta["npts"] * 4 * np.dtype("<i2").itemsize, "Track-point payload has the wrong byte length")
     check(len(times) == meta["npts"] * np.dtype("<i4").itemsize, "Time payload has the wrong byte length")
-    check(offsets[0][0] == 0, "First track does not start at fix zero")
-    check(offsets[-1][0] + offsets[-1][1] == meta["npts"], "Track offsets do not cover the fix payload")
+    check(offsets[0][0] == 0, "First track does not start at track point zero")
+    check(offsets[-1][0] + offsets[-1][1] == meta["npts"], "Track offsets do not cover the track-point payload")
     check(min(cat["year"]) == 1950 and max(cat["year"]) == 2025, "Unexpected catalogue coverage")
     check(len(meta.get("diagnostics", [])) == 56, "Expected 56 lazy ERA5 diagnostics")
     check(len({item["key"] for item in meta["diagnostics"]}) == 56, "Diagnostic keys are not unique")
 
     packed = np.frombuffer(fixes, dtype="<i2")
     point_times = np.frombuffer(times, dtype="<i4")
-    check(np.all(np.diff(point_times[np.array([offsets[0][0] + i for i in range(offsets[0][1])])]) > 0), "Fix times are not increasing")
+    check(np.all(np.diff(point_times[np.array([offsets[0][0] + i for i in range(offsets[0][1])])]) > 0), "Track-point times are not increasing")
     has_bridged_gap = any(
         np.any(np.diff(point_times[start:start + length]) > 3)
         for start, length in offsets
@@ -111,7 +114,7 @@ def main() -> None:
     source = ROOT.parent / "catalogue-v6" / "full-r2" / "wd_v6-era5-1950-2025-fixes.parquet"
     source_columns = ["track_id", "valid_time_utc", "lon", "lat", "track_vorticity_450_300hpa_t42", "precip_24hr_400km"]
     source_fixes = pd.read_parquet(source, columns=source_columns).sort_values(["track_id", "valid_time_utc"], kind="stable", ignore_index=True)
-    check(len(source_fixes) == meta["npts"], "Source/atlas fix row conservation failed")
+    check(len(source_fixes) == meta["npts"], "Source/atlas track-point row conservation failed")
     samples = np.array([0, 1, 17, 12_345, 230_205, meta["npts"] - 1])
     check(np.array_equal(packed[samples], np.rint(source_fixes.loc[samples, "lon"].to_numpy() * 100).astype("<i2")), "Longitude round trip failed")
     check(np.array_equal(packed[meta["npts"] + samples], np.rint(source_fixes.loc[samples, "lat"].to_numpy() * 100).astype("<i2")), "Latitude round trip failed")
@@ -153,13 +156,13 @@ def main() -> None:
     app = (ROOT / "assets" / "atlas-app.js").read_text(encoding="utf-8")
     check('bindDateInput("#wdDateMin", "dateMin")' in app and "Preserve that partial edit" in app, "Date inputs do not preserve partial keyboard edits")
     check("function loadDiagnostic(metric)" in app and "diagnosticArrays" in app, "Lazy evolution diagnostics are not wired")
-    check("fixTimeMillis(index, fix)" in app, "Actual fix times are not used by the application")
+    check("fixTimeMillis(index, fix)" in app, "Actual track-point times are not used by the application")
     referenced_ids = set(re.findall(r'\$\("#([A-Za-z][\w-]*)"\)', app))
     missing_ids = sorted(referenced_ids - set(parser.ids) - DYNAMIC_IDS)
     check(not missing_ids, f"JavaScript references missing HTML IDs: {', '.join(missing_ids)}")
 
     print(
-        f"OK: {meta['ntracks']:,} tracks, {meta['npts']:,} fixes, "
+        f"OK: {meta['ntracks']:,} tracks, {meta['npts']:,} track points, "
         f"{len(meta['diagnostics'])} lazy diagnostics, {len(parser.ids)} unique document IDs, "
         f"{len(manifest['assets'])} checksummed assets"
     )

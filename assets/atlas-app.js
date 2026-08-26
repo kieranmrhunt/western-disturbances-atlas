@@ -18,6 +18,7 @@
 	]);
 	const SERIES_COLOURS = ["#aa3d2d", "#233f78", "#08736f"];
 	const VERTICAL_METRICS = Object.freeze({
+		vorticity: { label: "Vorticity", keys: ["vo_850", "vo_700", "vo_500"], unit: "10⁻⁵ s⁻¹", decimals: 2 },
 		wind_speed: { label: "Wind speed", keys: ["wind_speed_850hpa", "wind_speed_700hpa", "wind_speed_500hpa"], unit: "m s⁻¹", decimals: 1 },
 		temperature: { label: "Temperature", keys: ["temperature_850hpa_k", "temperature_700hpa_k", "temperature_500hpa_k"], unit: "K", decimals: 1 },
 		relative_humidity: { label: "Relative humidity", keys: ["relative_humidity_850hpa_pct", "relative_humidity_700hpa_pct", "relative_humidity_500hpa_pct"], unit: "%", decimals: 0 },
@@ -125,6 +126,7 @@
 	const impactPromises = new Map();
 	const impactErrors = new Map();
 	let impactAvailableYears = new Set();
+	let impactArchiveStatus = "unavailable";
 
 	const state = {
 		timeMode: "years",
@@ -135,7 +137,6 @@
 		routes: new Set(),
 		yearMin: 1950,
 		yearMax: 2025,
-		yearBasis: "calendar",
 		dateMin: DEFAULT_DATE_MIN,
 		dateMax: DEFAULT_DATE_MAX,
 		intensityMin: 0,
@@ -148,7 +149,7 @@
 		mapLayer: "tracks",
 		mapColour: "single",
 		showRegionBoxes: true,
-		crossingLongitude: 70,
+		crossingLongitude: 60,
 		hideTracksWithWeather: true,
 		weatherLayer: "none"
 	};
@@ -197,7 +198,7 @@
 
 		const fixes = new Int16Array(fixesBuffer);
 		if (fixes.length !== META.npts * 4) {
-			throw new Error(`Fix asset contains ${fixes.length} values; expected ${META.npts * 4}.`);
+			throw new Error(`Track-point asset contains ${fixes.length} values; expected ${META.npts * 4}.`);
 		}
 		PLON = fixes.subarray(0, META.npts);
 		PLAT = fixes.subarray(META.npts, META.npts * 2);
@@ -258,8 +259,10 @@
 			const response = await fetch(`${base}/impact-manifest.json`, { cache: "no-cache" });
 			if (!response.ok) return;
 			const manifest = await response.json();
+			impactArchiveStatus = manifest.status || "available";
 			impactAvailableYears = new Set((manifest.years || []).map((entry) => Number(entry.year)).filter(Number.isFinite));
 		} catch (_) {
+			impactArchiveStatus = "unavailable";
 			impactAvailableYears = new Set();
 		}
 	}
@@ -279,7 +282,7 @@
 		const options = groups.map(([label, keys]) => `<optgroup label="${escapeHtml(label)}">${keys.map((key) => `<option value="${escapeHtml(key)}">${escapeHtml(EVOLUTION_METRICS[key].label)}</option>`).join("")}</optgroup>`).join("");
 		for (const select of [$("#wdEvolutionMetric"), $("#wdProfileMetric")]) select.innerHTML = options;
 		const extremes = $("#wdExtremeMetric");
-		extremes.insertAdjacentHTML("beforeend", `<optgroup label="Trajectory diagnostics"><option value="meanSpeed">Highest mean translation speed</option><option value="maxSpeed">Highest step translation speed</option><option value="displacement">Greatest displacement from genesis</option><option value="efficiency">Highest path efficiency</option><option value="gap">Largest tracker-bridged gap</option></optgroup><optgroup label="Per-fix ERA5 diagnostics">${diagnostics.map((descriptor) => `<option value="diag:${escapeHtml(descriptor.key)}">${descriptor.key === "mslp_min" ? "Lowest" : "Highest"} ${escapeHtml(descriptor.label.toLowerCase())}</option>`).join("")}</optgroup>`);
+		extremes.insertAdjacentHTML("beforeend", `<optgroup label="Trajectory diagnostics"><option value="meanSpeed">Highest mean translation speed</option><option value="maxSpeed">Highest step translation speed</option><option value="displacement">Greatest displacement from genesis</option><option value="efficiency">Highest path efficiency</option><option value="gap">Largest tracker-bridged gap</option></optgroup><optgroup label="Per-track-point ERA5 diagnostics">${diagnostics.map((descriptor) => `<option value="diag:${escapeHtml(descriptor.key)}">${descriptor.key === "mslp_min" ? "Lowest" : "Highest"} ${escapeHtml(descriptor.label.toLowerCase())}</option>`).join("")}</optgroup>`);
 	}
 
 	function loadDiagnostic(metric) {
@@ -405,32 +408,20 @@
 	}
 
 	function buildFilterControls() {
-		const monthCounts = Array(12).fill(0);
-		const regionCounts = Array(REGION_LABELS.length).fill(0);
-		const genesisRegionCounts = Array(GENESIS_REGIONS.length).fill(0);
-		const lysisRegionCounts = Array(LYSIS_REGIONS.length).fill(0);
-		const routeCounts = Array(routeDefinitions.length).fill(0);
-		for (let i = 0; i < META.ntracks; i += 1) {
-			monthCounts[CAT.month[i] - 1] += 1;
-			regionCounts[CAT.dom[i]] += 1;
-			genesisRegionCounts[genesisRegionByTrack[i]] += 1;
-			lysisRegionCounts[lysisRegionByTrack[i]] += 1;
-			if (routeByTrack && routeByTrack[i] < routeCounts.length) routeCounts[routeByTrack[i]] += 1;
-		}
 		$("#wdMonthChips").innerHTML = MONTHS.map((month, index) =>
-			`<button class="mla-chip" type="button" data-month="${index + 1}" aria-pressed="false">${month}<span class="mla-sr-only"> (${monthCounts[index].toLocaleString()} catalogue systems)</span></button>`
+			`<button class="mla-chip" type="button" data-month="${index + 1}" aria-pressed="false">${month}<span class="mla-sr-only" data-month-count="${index}"></span></button>`
 		).join("");
 		$("#wdRegionChips").innerHTML = REGION_LABELS.map((region, index) =>
-			`<button class="mla-chip" type="button" data-region="${index}" aria-pressed="false"><span class="mla-swatch" style="background:${REGION_COLORS[index]}"></span>${region}<span class="wd-footnote">${regionCounts[index].toLocaleString()}</span></button>`
+			`<button class="mla-chip" type="button" data-region="${index}" aria-pressed="false">${region}<span class="wd-footnote" data-region-count="${index}">0</span></button>`
 		).join("");
 		$("#wdGenesisRegionChips").innerHTML = GENESIS_REGIONS.map((region, index) =>
-			`<button class="mla-chip" type="button" data-genesis-region="${index}" aria-pressed="false">${region.label}<span class="wd-footnote">${genesisRegionCounts[index].toLocaleString()}</span></button>`
+			`<button class="mla-chip" type="button" data-genesis-region="${index}" aria-pressed="false">${region.label}<span class="wd-footnote" data-genesis-region-count="${index}">0</span></button>`
 		).join("");
 		$("#wdLysisRegionChips").innerHTML = LYSIS_REGIONS.map((region, index) =>
-			`<button class="mla-chip" type="button" data-lysis-region="${index}" aria-pressed="false">${region.label}<span class="wd-footnote">${lysisRegionCounts[index].toLocaleString()}</span></button>`
+			`<button class="mla-chip" type="button" data-lysis-region="${index}" aria-pressed="false">${region.label}<span class="wd-footnote" data-lysis-region-count="${index}">0</span></button>`
 		).join("");
 		$("#wdRouteChips").innerHTML = routeDefinitions.map((route, index) =>
-			`<button class="mla-chip" type="button" data-route="${index}" aria-pressed="false">${escapeHtml(route.label)}<span class="wd-footnote">${routeCounts[index].toLocaleString()}</span></button>`
+			`<button class="mla-chip" type="button" data-route="${index}" aria-pressed="false">${escapeHtml(route.label)}<span class="wd-footnote" data-route-count="${index}">0</span></button>`
 		).join("");
 		if (!routeDefinitions.length) $("#wdRouteChips").innerHTML = '<span class="mla-caution">Route asset unavailable.</span>';
 		renderMetricChips();
@@ -454,20 +445,6 @@
 		});
 		$("#wdTimeModeYears").addEventListener("click", () => setTimeMode("years"));
 		$("#wdTimeModeDates").addEventListener("click", () => setTimeMode("dates"));
-		$("#wdYearBasis").addEventListener("change", (event) => {
-			const oldMaximum = catalogueYearMaximum();
-			const usedFullRange = state.yearMin === catalogueYearMinimum() && state.yearMax === oldMaximum;
-			state.yearBasis = event.target.value === "winter" ? "winter" : "calendar";
-			if (usedFullRange) {
-				state.yearMin = catalogueYearMinimum();
-				state.yearMax = catalogueYearMaximum();
-			} else {
-				state.yearMin = clamp(state.yearMin, catalogueYearMinimum(), catalogueYearMaximum());
-				state.yearMax = clamp(state.yearMax, state.yearMin, catalogueYearMaximum());
-			}
-			syncControlsFromState();
-			applyFilters();
-		});
 		$("#wdYearMin").addEventListener("change", (event) => {
 			state.yearMin = clamp(Number(event.target.value) || catalogueYearMinimum(), catalogueYearMinimum(), state.yearMax);
 			syncControlsFromState();
@@ -564,6 +541,10 @@
 
 		$("#wdMapLayer").addEventListener("change", (event) => {
 			state.mapLayer = event.target.value;
+			if (state.weatherLayer !== "none") {
+				state.hideTracksWithWeather = state.mapLayer === "none";
+				$("#wdHideTracksWeather").checked = state.hideTracksWithWeather;
+			}
 			drawMap();
 			scheduleUrlUpdate();
 		});
@@ -574,17 +555,28 @@
 		});
 		$("#wdWeatherLayer").addEventListener("change", (event) => {
 			state.weatherLayer = event.target.value;
+			if (state.weatherLayer !== "none") {
+				state.mapLayer = "none";
+				state.hideTracksWithWeather = true;
+				$("#wdMapLayer").value = "none";
+				$("#wdHideTracksWeather").checked = true;
+			}
 			weatherError = "";
 			weatherLoadSerial += 1;
 			weatherMonth = "";
 			weatherField = "";
 			updateWeatherControls();
+			drawMapData();
 			if (state.weatherLayer === "none") drawMapWeather();
 			else syncWeatherToFocus();
 			scheduleUrlUpdate();
 		});
 		$("#wdHideTracksWeather").addEventListener("change", (event) => {
 			state.hideTracksWithWeather = event.target.checked;
+			if (state.weatherLayer !== "none") {
+				state.mapLayer = state.hideTracksWithWeather ? "none" : "tracks";
+				$("#wdMapLayer").value = state.mapLayer;
+			}
 			drawMapData();
 			scheduleUrlUpdate();
 		});
@@ -594,7 +586,7 @@
 			scheduleUrlUpdate();
 		});
 		$("#wdCrossingLongitude").addEventListener("change", (event) => {
-			state.crossingLongitude = clamp(Number(event.target.value) || 70, -20, 145);
+			state.crossingLongitude = clamp(Number(event.target.value) || 60, -20, 145);
 			event.target.value = state.crossingLongitude;
 			drawMap();
 			drawLifeChart();
@@ -622,11 +614,6 @@
 		});
 		$("#wdRetryImpact").addEventListener("click", () => { if (selected >= 0) { impactErrors.delete(CAT.year[selected]); impactCache.delete(CAT.year[selected]); drawImpactFootprint(); } });
 		$("#wdAddEvolutionMetric").addEventListener("click", addEvolutionMetric);
-		$("#wdJetPreset").addEventListener("click", () => {
-			evolutionMetrics = ["jet_axis_distance_200hpa", "jet_axis_wind_speed_200hpa"].filter((metric) => EVOLUTION_METRICS[metric]);
-			if (!evolutionMetrics.length) return showToast("Jet diagnostics are not available in this deployment.");
-			renderMetricChips(); drawLifeChart(); scheduleUrlUpdate();
-		});
 		$("#wdAddProfileMetric").addEventListener("click", addProfileMetric);
 		$("#wdEvolutionMetricChips").addEventListener("click", (event) => removeChartMetric(event, "evolution"));
 		$("#wdProfileMetricChips").addEventListener("click", (event) => removeChartMetric(event, "profile"));
@@ -762,7 +749,7 @@
 		mapTimeFocus = match[2] == null ? match[1] : `${match[1]}T${String(Number(match[2])).padStart(2, "0")}`;
 		$("#wdMapTimeSearch").value = mapTimeFocus.replace("T", " ");
 		refreshMapTimeMatches();
-		if (mapTimeMatches.length) showToast(`${mapTimeMatches.length.toLocaleString()} catalogue fix${mapTimeMatches.length === 1 ? "" : "es"} at ${mapTimeFocus.replace("T", " ")} UTC.`);
+		if (mapTimeMatches.length) showToast(`${mapTimeMatches.length.toLocaleString()} catalogue track point${mapTimeMatches.length === 1 ? "" : "s"} at ${mapTimeFocus.replace("T", " ")} UTC.`);
 		else if (!options.silent) showToast(`No filtered systems are active at ${mapTimeFocus.replace("T", " ")} UTC.`);
 		drawMapOverlay();
 		updateMapLegend(resolvedMapLayer());
@@ -805,7 +792,6 @@
 		state.routes.clear();
 		state.yearMin = Math.min(...CAT.year);
 		state.yearMax = Math.max(...CAT.year);
-		state.yearBasis = "calendar";
 		state.dateMin = DEFAULT_DATE_MIN;
 		state.dateMax = DEFAULT_DATE_MAX;
 		state.intensityMin = 0;
@@ -832,7 +818,6 @@
 		}
 		$("#wdYearMin").value = state.yearMin;
 		$("#wdYearMax").value = state.yearMax;
-		$("#wdYearBasis").value = state.yearBasis;
 		const dateMinInput = $("#wdDateMin");
 		const dateMaxInput = $("#wdDateMax");
 		if (document.activeElement !== dateMinInput) dateMinInput.value = state.dateMin;
@@ -893,45 +878,71 @@
 		});
 	}
 
-	function applyFilters(options = {}) {
+	function filterContext() {
 		const minimumActive = state.timeMode === "dates" ? Date.parse(`${state.dateMin}T00:00:00Z`) : NaN;
 		const maximumActive = state.timeMode === "dates" ? Date.parse(`${state.dateMax}T23:59:59.999Z`) : NaN;
-		const useRegions = state.regions.size > 0;
-		const useGenesisRegions = state.genesisRegions.size > 0;
-		const useLysisRegions = state.lysisRegions.size > 0;
-		const useRoutes = state.routes.size > 0;
 		const query = state.query.toLowerCase();
 		const dateQuery = /^\d{4}-\d{2}-\d{2}$/.test(query) ? query : "";
 		const compactQuery = query.replace(/[^a-z0-9]/g, "");
+		return { minimumActive, maximumActive, query, dateQuery, compactQuery };
+	}
+
+	function trackMatchesFilters(index, excludedFacet, context) {
+		if (excludedFacet !== "months" && !state.months.has(CAT.month[index])) return false;
+		if (state.timeMode === "dates") {
+			if (lysisMillis(index) < context.minimumActive || genesisMillis(index) > context.maximumActive) return false;
+		} else if (CAT.year[index] < state.yearMin || CAT.year[index] > state.yearMax) return false;
+		if (CAT.pct_int[index] < state.intensityMin || CAT.pct_pr[index] < state.rainMin) return false;
+		if (CAT.len_km[index] < state.lengthMin || CAT.dur[index] < state.durationMin) return false;
+		if (excludedFacet !== "regions" && state.regions.size && !state.regions.has(CAT.dom[index])) return false;
+		if (excludedFacet !== "genesisRegions" && state.genesisRegions.size && !state.genesisRegions.has(genesisRegionByTrack[index])) return false;
+		if (excludedFacet !== "lysisRegions" && state.lysisRegions.size && !state.lysisRegions.has(lysisRegionByTrack[index])) return false;
+		if (excludedFacet !== "routes" && state.routes.size && (!routeByTrack || !state.routes.has(routeByTrack[index]))) return false;
+		if (state.spellFilter === "multi" && spellSizeByTrack[index] < 2) return false;
+		if (state.spellFilter === "isolated" && spellSizeByTrack[index] !== 1) return false;
+		if (CLIMATE) {
+			if (["oni", "nao", "ao", "pna"].some((key) => state.climate[key] !== "all" && CLIMATE.categories[key][index] !== Number(state.climate[key]))) return false;
+			if (state.climate.mjo !== "all" && CLIMATE.mjo_phase[index] !== Number(state.climate.mjo)) return false;
+		}
+		if (context.query) {
+			if (context.dateQuery) {
+				if (genesisDate(index) !== context.dateQuery) return false;
+			} else {
+				const searchable = `${trackNames[index]} ${CAT.id[index]}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+				if (!searchable.includes(context.compactQuery)) return false;
+			}
+		}
+		return true;
+	}
+
+	function updateFacetCounts(context) {
+		const monthCounts = Array(12).fill(0);
+		const regionCounts = Array(REGION_LABELS.length).fill(0);
+		const genesisRegionCounts = Array(GENESIS_REGIONS.length).fill(0);
+		const lysisRegionCounts = Array(LYSIS_REGIONS.length).fill(0);
+		const routeCounts = Array(routeDefinitions.length).fill(0);
+		for (let index = 0; index < META.ntracks; index += 1) {
+			if (trackMatchesFilters(index, "months", context)) monthCounts[CAT.month[index] - 1] += 1;
+			if (trackMatchesFilters(index, "regions", context)) regionCounts[CAT.dom[index]] += 1;
+			if (trackMatchesFilters(index, "genesisRegions", context)) genesisRegionCounts[genesisRegionByTrack[index]] += 1;
+			if (trackMatchesFilters(index, "lysisRegions", context)) lysisRegionCounts[lysisRegionByTrack[index]] += 1;
+			if (routeByTrack && trackMatchesFilters(index, "routes", context)) routeCounts[routeByTrack[index]] += 1;
+		}
+		monthCounts.forEach((count, index) => { const node = $(`[data-month-count="${index}"]`); if (node) node.textContent = ` (${count.toLocaleString()} systems with other filters applied)`; });
+		regionCounts.forEach((count, index) => { const node = $(`[data-region-count="${index}"]`); if (node) node.textContent = count.toLocaleString(); });
+		genesisRegionCounts.forEach((count, index) => { const node = $(`[data-genesis-region-count="${index}"]`); if (node) node.textContent = count.toLocaleString(); });
+		lysisRegionCounts.forEach((count, index) => { const node = $(`[data-lysis-region-count="${index}"]`); if (node) node.textContent = count.toLocaleString(); });
+		routeCounts.forEach((count, index) => { const node = $(`[data-route-count="${index}"]`); if (node) node.textContent = count.toLocaleString(); });
+	}
+
+	function applyFilters(options = {}) {
+		const context = filterContext();
 		const next = [];
 		for (let i = 0; i < META.ntracks; i += 1) {
-			if (!state.months.has(CAT.month[i])) continue;
-			if (state.timeMode === "dates") {
-				if (lysisMillis(i) < minimumActive || genesisMillis(i) > maximumActive) continue;
-			} else if (systemYear(i) < state.yearMin || systemYear(i) > state.yearMax) continue;
-			if (CAT.pct_int[i] < state.intensityMin || CAT.pct_pr[i] < state.rainMin) continue;
-			if (CAT.len_km[i] < state.lengthMin || CAT.dur[i] < state.durationMin) continue;
-			if (useRegions && !state.regions.has(CAT.dom[i])) continue;
-			if (useGenesisRegions && !state.genesisRegions.has(genesisRegionByTrack[i])) continue;
-			if (useLysisRegions && !state.lysisRegions.has(lysisRegionByTrack[i])) continue;
-			if (useRoutes && (!routeByTrack || !state.routes.has(routeByTrack[i]))) continue;
-			if (state.spellFilter === "multi" && spellSizeByTrack[i] < 2) continue;
-			if (state.spellFilter === "isolated" && spellSizeByTrack[i] !== 1) continue;
-			if (CLIMATE) {
-				if (["oni", "nao", "ao", "pna"].some((key) => state.climate[key] !== "all" && CLIMATE.categories[key][i] !== Number(state.climate[key]))) continue;
-				if (state.climate.mjo !== "all" && CLIMATE.mjo_phase[i] !== Number(state.climate.mjo)) continue;
-			}
-			if (query) {
-				if (dateQuery) {
-					if (genesisDate(i) !== dateQuery) continue;
-				} else {
-					const searchable = `${trackNames[i]} ${CAT.id[i]}`.toLowerCase().replace(/[^a-z0-9]/g, "");
-					if (!searchable.includes(compactQuery)) continue;
-				}
-			}
-			next.push(i);
+			if (trackMatchesFilters(i, null, context)) next.push(i);
 		}
 		filtered = next;
+		updateFacetCounts(context);
 		filteredBit.fill(0);
 		for (const index of filtered) filteredBit[index] = 1;
 		refreshMapTimeMatches();
@@ -954,7 +965,6 @@
 		if (state.routes.size) pieces.push(`${state.routes.size} route archetype${state.routes.size === 1 ? "" : "s"}`);
 		if (state.regions.size) pieces.push(`${state.regions.size} impact region${state.regions.size === 1 ? "" : "s"}`);
 		if (state.spellFilter !== "all") pieces.push(state.spellFilter === "multi" ? "multi-WD spells" : "isolated WDs");
-		if (state.yearBasis === "winter" && state.timeMode === "years") pieces.push("winter years");
 		const regimeCount = Object.values(state.climate).filter((value) => value !== "all").length;
 		if (regimeCount) pieces.push(`${regimeCount} circulation filter${regimeCount === 1 ? "" : "s"}`);
 		$("#wdFilterBadge").textContent = pieces.length ? pieces.join(" · ") : describeMonths();
@@ -978,7 +988,7 @@
 		const count = filtered.length || 1;
 		const cards = [
 			["Systems", filtered.length.toLocaleString(), `${(filtered.length / META.ntracks * 100).toFixed(1)}% of catalogue`],
-			["Mean peak ζ", filtered.length ? (intensity / count).toFixed(1) : "—", "10⁻⁵ s⁻¹ · 450–300 hPa"],
+			["Mean peak vorticity", filtered.length ? (intensity / count).toFixed(1) : "—", "10⁻⁵ s⁻¹ · 450–300 hPa"],
 			["Mean peak precipitation", rainCount ? (rain / rainCount).toFixed(1) : "—", "mm · track-centred 24 h"],
 			["Mean lifetime", filtered.length ? Math.round(duration / count).toLocaleString() : "—", "hours"]
 		];
@@ -1686,7 +1696,7 @@
 			legend.innerHTML = `<span class="mla-legend-item"><span class="mla-swatch" style="background:${css("--mla-atlas-blue", "#3978a8")}"></span>${layer === "tracks" ? "Individual trajectories" : layer === "genesis" ? "Genesis locations" : "Lysis locations"}</span>`;
 		}
 		if (selected >= 0) legend.insertAdjacentHTML("beforeend", `<span class="mla-legend-item"><span class="mla-swatch" style="background:${css("--mla-ink", "#17130f")}"></span>Selected trajectory</span><span class="wd-map-marker-key"><i></i><i></i> genesis / lysis</span>`);
-		if (mapTimeFocus) legend.insertAdjacentHTML("beforeend", `<span class="mla-legend-item"><span class="mla-swatch" style="background:${css("--mla-turmeric", "#c3931d")}"></span>${mapTimeMatches.length.toLocaleString()} fixes at ${escapeHtml(mapTimeFocus.replace("T", " "))} UTC</span>`);
+		if (mapTimeFocus) legend.insertAdjacentHTML("beforeend", `<span class="mla-legend-item"><span class="mla-swatch" style="background:${css("--mla-turmeric", "#c3931d")}"></span>${mapTimeMatches.length.toLocaleString()} track points at ${escapeHtml(mapTimeFocus.replace("T", " "))} UTC</span>`);
 	}
 
 	function colourForTrack(index) {
@@ -1852,10 +1862,13 @@
 
 	function renderDossier() {
 		const dossier = $("#wdDossier");
+		const relationships = $("#wdRelationships");
 		if (selected < 0) {
 			const multi = filtered.filter((index) => spellSizeByTrack[index] > 1).length;
-			const winters = new Set(filtered.map(systemYear));
-			dossier.innerHTML = `<span class="mla-eyebrow">Current subset</span><h3>${filtered.length.toLocaleString()} western disturbances</h3><p class="mla-dossier-sub">${winters.size.toLocaleString()} ${state.yearBasis === "winter" ? "winter" : "calendar"} years · ${multi.toLocaleString()} systems in multi-WD spells</p><div class="mla-fact-grid"><div class="mla-fact"><span>Route archetypes</span><strong>${new Set(filtered.map((index) => routeByTrack ? routeByTrack[index] : -1)).size}</strong><small>present in subset</small></div><div class="mla-fact"><span>Median lifetime</span><strong>${filtered.length ? Math.round(quantile(filtered.map((index) => CAT.dur[index]).sort((a, b) => a - b), .5)) : 0} h</strong><small>filtered systems</small></div></div><p class="mla-dossier-empty">Select a track on the map or from a table to open its dossier.</p>`;
+			const years = new Set(filtered.map((index) => CAT.year[index]));
+			dossier.innerHTML = `<span class="mla-eyebrow">Current subset</span><h3>${filtered.length.toLocaleString()} western disturbances</h3><p class="mla-dossier-sub">${years.size.toLocaleString()} calendar years · ${multi.toLocaleString()} systems in multi-WD spells</p><div class="mla-fact-grid"><div class="mla-fact"><span>Route archetypes</span><strong>${new Set(filtered.map((index) => routeByTrack ? routeByTrack[index] : -1)).size}</strong><small>present in subset</small></div><div class="mla-fact"><span>Median lifetime</span><strong>${filtered.length ? Math.round(quantile(filtered.map((index) => CAT.dur[index]).sort((a, b) => a - b), .5)) : 0} h</strong><small>filtered systems</small></div></div><p class="mla-dossier-empty">Select a track on the map or from a table to open its dossier.</p>`;
+			relationships.hidden = true;
+			relationships.innerHTML = "";
 			return;
 		}
 		const index = selected;
@@ -1871,14 +1884,14 @@
 		const analogues = similarTracks(index, 5);
 		dossier.innerHTML = `
 			<div class="mla-dossier-head">
-				<div><span class="mla-badge" data-tone="official">${trackName(index)}</span><h3>${formatGenesis(index)}</h3><p class="mla-dossier-sub">Catalogue ID ${CAT.id[index]} · ${state.yearBasis === "winter" ? `Winter ${systemYear(index)} · ` : ""}Genesis region: ${GENESIS_REGIONS[genesisRegionByTrack[index]].longLabel}<br>${route ? `Route: ${escapeHtml(route.label)} · ` : ""}Lysis sector: ${LYSIS_REGIONS[lysisRegionByTrack[index]].label}<br><span class="mla-swatch" style="background:${REGION_COLORS[CAT.dom[index]]}"></span> Dominant precipitation: ${REGION_LONG[CAT.dom[index]]}</p></div>
+				<div><span class="mla-badge" data-tone="official">${trackName(index)}</span><h3>${formatGenesis(index)}</h3><p class="mla-dossier-sub">Catalogue ID ${CAT.id[index]} · Genesis region: ${GENESIS_REGIONS[genesisRegionByTrack[index]].longLabel}<br>${route ? `Route: ${escapeHtml(route.label)} · ` : ""}Lysis sector: ${LYSIS_REGIONS[lysisRegionByTrack[index]].label}<br><span class="mla-swatch" style="background:${REGION_COLORS[CAT.dom[index]]}"></span> Dominant precipitation: ${REGION_LONG[CAT.dom[index]]}</p></div>
 				<button class="mla-btn mla-btn-icon mla-btn-small" id="wdCloseDossier" type="button" aria-label="Close dossier">×</button>
 			</div>
 			<div class="mla-fact-grid">
 				<div class="mla-fact"><span>Peak 450–300 hPa ζ</span><strong>${CAT.pk_int[index].toFixed(1)}</strong><small>10⁻⁵ s⁻¹ · P${Math.round(CAT.pct_int[index])}</small></div>
 				<div class="mla-fact"><span>Peak 24 h precipitation</span><strong>${formatNumber(CAT.pk_pr[index], 1)} mm</strong><small>${CAT.pk_pr[index] == null ? "not available" : `P${Math.round(CAT.pct_pr[index])}`}</small></div>
 				<div class="mla-fact"><span>Path length</span><strong>${Math.round(CAT.len_km[index]).toLocaleString()} km</strong><small>P${Math.round(CAT.pct_len[index])}</small></div>
-				<div class="mla-fact"><span>Lifetime</span><strong>${CAT.dur[index]} h</strong><small>${length} three-hourly fixes</small></div>
+				<div class="mla-fact"><span>Lifetime</span><strong>${CAT.dur[index]} h</strong><small>${length} three-hourly track points</small></div>
 				<div class="mla-fact"><span>Genesis</span><strong class="wd-coordinate">${(PLAT[start] / 100).toFixed(2)}°N</strong><small>${(PLON[start] / 100).toFixed(2)}°E</small></div>
 				<div class="mla-fact"><span>Lysis</span><strong class="wd-coordinate">${(PLAT[last] / 100).toFixed(2)}°N</strong><small>${(PLON[last] / 100).toFixed(2)}°E · ${formatTrackTime(index, length - 1)}</small></div>
 				<div class="mla-fact"><span>${state.crossingLongitude}°E crossing</span><strong>${crossing ? new Date(crossing.timeMillis).toISOString().slice(0, 16).replace("T", " ") : "Not crossed"}</strong><small>${crossing ? `${crossing.lat.toFixed(2)}°N · interpolated` : "within published track"}</small></div>
@@ -1886,15 +1899,18 @@
 			</div>
 			<div class="mla-match-box"><h4>Peak regional 24 h precipitation</h4><div class="wd-region-list">${regionValues.map((value, region) => `<div class="wd-region-row"><span>${REGION_LABELS[region]}</span><span class="wd-region-bar"><i style="width:${value / maximumRegion * 100}%;background:${REGION_COLORS[region]}"></i></span><strong>${value.toFixed(1)} mm</strong></div>`).join("")}</div></div>
 			${CLIMATE ? `<div class="mla-match-box"><h4>Climate and circulation at genesis</h4><dl><dt>ENSO · ONI</dt><dd>${climateStateLabel("oni", index)}</dd><dt>NAO</dt><dd>${climateStateLabel("nao", index)}</dd><dt>AO</dt><dd>${climateStateLabel("ao", index)}</dd><dt>PNA</dt><dd>${climateStateLabel("pna", index)}</dd><dt>MJO · RMM</dt><dd>${climateStateLabel("mjo", index)}</dd></dl></div>` : ""}
+			<div class="mla-dossier-actions"><button class="mla-btn mla-btn-small" id="wdPreviousTrack" type="button" ${neighbours.previous < 0 ? "disabled" : ""}>Previous WD</button><button class="mla-btn mla-btn-small" id="wdNextTrack" type="button" ${neighbours.next < 0 ? "disabled" : ""}>Next WD</button><button class="mla-btn mla-btn-small" id="wdFitSelected" type="button">Fit track on map</button><button class="mla-btn mla-btn-small" id="wdDossierDownload" type="button">Download track points</button></div>`;
+		relationships.hidden = false;
+		relationships.innerHTML = `<div class="wd-relationship-grid">
 			${spellMembers.length ? `<div class="mla-match-box"><h4>Other systems in this spell</h4><div class="mla-chip-row">${spellMembers.slice(0, 8).map((member) => `<button class="mla-chip" type="button" data-select-track="${member}">${trackName(member)}</button>`).join("")}</div></div>` : ""}
-			<div class="mla-match-box"><h4>Closest catalogue analogues</h4><div class="mla-chip-row">${analogues.map(([analogue, distance]) => `<button class="mla-chip" type="button" data-select-track="${analogue}" title="standardised analogue distance ${distance.toFixed(2)}">${trackName(analogue)}</button>`).join("")}</div><p class="mla-caution">Trajectory shape dominates; season, lifetime, intensity and precipitation provide smaller penalties.</p></div>
-			<div class="mla-dossier-actions"><button class="mla-btn mla-btn-small" id="wdPreviousTrack" type="button" ${neighbours.previous < 0 ? "disabled" : ""}>Previous WD</button><button class="mla-btn mla-btn-small" id="wdNextTrack" type="button" ${neighbours.next < 0 ? "disabled" : ""}>Next WD</button><button class="mla-btn mla-btn-small" id="wdFitSelected" type="button">Fit track on map</button><button class="mla-btn mla-btn-small" id="wdDossierDownload" type="button">Download fixes</button></div>`;
+			<div class="mla-match-box"><h4>Closest catalogue analogues</h4><div class="mla-chip-row">${analogues.map(([analogue, distance]) => `<button class="mla-chip" type="button" data-select-track="${analogue}" title="standardised analogue distance ${distance.toFixed(2)}">${trackName(analogue)}</button>`).join("")}</div></div>
+		</div>`;
 		$("#wdCloseDossier").addEventListener("click", clearSelection);
 		$("#wdFitSelected").addEventListener("click", () => fitSelectedTrack(index));
 		$("#wdDossierDownload").addEventListener("click", downloadSelectedFixes);
 		$("#wdPreviousTrack").addEventListener("click", () => { if (neighbours.previous >= 0) selectTrack(neighbours.previous); });
 		$("#wdNextTrack").addEventListener("click", () => { if (neighbours.next >= 0) selectTrack(neighbours.next); });
-		$$('[data-select-track]', dossier).forEach((button) => button.addEventListener("click", () => selectTrack(Number(button.dataset.selectTrack), { fit: false })));
+		$$('[data-select-track]', relationships).forEach((button) => button.addEventListener("click", () => selectTrack(Number(button.dataset.selectTrack), { fit: false })));
 	}
 
 	function renderTable() {
@@ -2048,7 +2064,7 @@
 			drawProfilePanel(chart, summary, reference, descriptor, metric);
 			tables.push(`<h4>${escapeHtml(descriptor.label)}</h4>${accessibleTable(["Life fraction (%)", "Systems", "Lower quartile", "Median", "Upper quartile", "All-catalogue median"], summary.map((row, index) => [row.life, row.n, formatNumber(row.q1, descriptor.decimals), formatNumber(row.median, descriptor.decimals), formatNumber(row.q3, descriptor.decimals), formatNumber(reference[index].median, descriptor.decimals)]))}`);
 		}
-		$("#wdProfileReadout").textContent = `${filtered.length.toLocaleString()} systems · solid line and shading are subset median/IQR; dotted line is all ${META.ntracks.toLocaleString()} systems`;
+		$("#wdProfileReadout").textContent = `${filtered.length.toLocaleString()} systems · axes fixed to the all-catalogue 2nd–98th percentile range`;
 		$("#wdProfileData").innerHTML = tables.join("");
 	}
 
@@ -2072,18 +2088,20 @@
 		}
 		const summary = bins.map((values, index) => {
 			values.sort((a, b) => a - b);
-			return { life: index * 5, q1: quantile(values, 0.25), median: quantile(values, 0.5), q3: quantile(values, 0.75), n: values.length };
+			return { life: index * 5, p02: quantile(values, 0.02), q1: quantile(values, 0.25), median: quantile(values, 0.5), q3: quantile(values, 0.75), p98: quantile(values, 0.98), n: values.length };
 		});
 		return summary;
 	}
 
 	function drawProfilePanel(chart, summary, reference, descriptor, metric) {
 		const { context, width, height } = chart;
-		const range = metricRange(summary.flatMap((row) => [row.q1, row.q3]).concat(reference.map((row) => row.median)), descriptor.zeroBased);
+		const range = metricRange(reference.flatMap((row) => [row.p02, row.p98]), descriptor.zeroBased);
 		const plot = chartFrame(context, width, height, { left: 52, right: 22, top: 18, bottom: 38, yMin: range.minimum, yMax: range.maximum, yLabel: descriptor.yLabel, xLabel: "Life fraction (%)" });
 		const binCount = summary.length;
 		const x = (index) => plot.left + index / (binCount - 1) * plot.width;
 		const y = (value) => plot.bottom - (value - plot.yMin) / (plot.yMax - plot.yMin) * plot.height;
+		context.save();
+		context.beginPath(); context.rect(plot.left, plot.top, plot.width, plot.height); context.clip();
 		context.beginPath();
 		summary.forEach((row, index) => index === 0 ? context.moveTo(x(index), y(row.q3 ?? plot.yMin)) : context.lineTo(x(index), y(row.q3 ?? plot.yMin)));
 		for (let index = summary.length - 1; index >= 0; index -= 1) context.lineTo(x(index), y(summary[index].q1 ?? plot.yMin));
@@ -2093,6 +2111,7 @@
 		context.fill();
 		context.save(); context.setLineDash([5, 4]); drawLineSeries(context, reference.map((row) => row.median), x, y, "rgba(40,33,25,.66)", false, plot); context.restore();
 		drawLineSeries(context, summary.map((row) => row.median), x, y, colour, false, plot);
+		context.restore();
 	}
 
 	function drawVerticalChart() {
@@ -2100,14 +2119,16 @@
 		if (!chart) return;
 		const { context, width, height } = chart;
 		if (selected < 0) { drawEmptyChart(context, width, height, "Select a disturbance to inspect its track-centred vertical structure."); $("#wdVerticalReadout").textContent = ""; return; }
-		const definition = VERTICAL_METRICS[$("#wdVerticalMetric").value] || VERTICAL_METRICS.wind_speed;
+		const definition = VERTICAL_METRICS[$("#wdVerticalMetric").value] || VERTICAL_METRICS.vorticity;
 		const unavailable = definition.keys.find((key) => !metricIsReady(key, drawVerticalChart));
 		if (unavailable) { drawEmptyChart(context, width, height, diagnosticErrors.has(unavailable) ? `Could not load ${definition.label}.` : `Loading ${definition.label}…`); return; }
 		const points = trackPoints(selected), [start] = OFF[selected];
 		const rows = definition.keys.map((key) => points.map((_, fix) => diagnosticArrays.get(key)[start + fix]));
 		const finite = rows.flat().filter(Number.isFinite).sort((a, b) => a - b);
 		if (!finite.length) { drawEmptyChart(context, width, height, `${definition.label} is unavailable for this system.`); return; }
-		const low = quantile(finite, .02), high = quantile(finite, .98);
+		let low = quantile(finite, .02), high = quantile(finite, .98);
+		const diverging = definition === VERTICAL_METRICS.vorticity;
+		if (diverging) { const magnitude = Math.max(Math.abs(low), Math.abs(high), Number.EPSILON); low = -magnitude; high = magnitude; }
 		const left = 56, right = 22, top = 28, bottom = height - 38, plotWidth = width - left - right, plotHeight = bottom - top;
 		const maximumElapsed = Math.max(1, points.at(-1).elapsedHours);
 		for (let level = 0; level < 3; level += 1) {
@@ -2115,7 +2136,7 @@
 			for (let fix = 0; fix < points.length; fix += 1) {
 				const x1 = left + points[fix].elapsedHours / maximumElapsed * plotWidth;
 				const x2 = fix + 1 < points.length ? left + points[fix + 1].elapsedHours / maximumElapsed * plotWidth : x1 + Math.max(2, plotWidth / points.length);
-				context.fillStyle = verticalColour(rows[level][fix], low, high);
+				context.fillStyle = verticalColour(rows[level][fix], low, high, diverging);
 				context.fillRect(x1, y, Math.max(1, x2 - x1 + .5), plotHeight / 3 + .5);
 			}
 		}
@@ -2131,8 +2152,9 @@
 		$("#wdVerticalReadout").textContent = `${formatTrackTime(selected, focusFix)} · ${[850, 700, 500].map((level, index) => `${level} hPa ${formatNumber(rows[index][focusFix], definition.decimals)} ${definition.unit}`).join(" · ")}`;
 	}
 
-	function verticalColour(value, low, high) {
+	function verticalColour(value, low, high, diverging = false) {
 		if (!Number.isFinite(value)) return "rgba(170,165,155,.32)";
+		if (diverging) return interpolateStops([[49, 91, 149], [184, 211, 227], [247, 247, 247], [244, 165, 130], [178, 24, 43]], clamp((value - low) / Math.max(Number.EPSILON, high - low), 0, 1), .94);
 		return interpolateStops([[247, 252, 253], [178, 226, 226], [102, 194, 164], [44, 127, 184], [84, 39, 143]], clamp((value - low) / Math.max(Number.EPSILON, high - low), 0, 1), .94);
 	}
 
@@ -2164,8 +2186,13 @@
 		if (selected < 0) { drawEmptyChart(context, width, height, "Select a disturbance to inspect its accumulated precipitation footprint."); $("#wdImpactReadout").textContent = ""; $("#wdRetryImpact").hidden = true; return; }
 		const year = CAT.year[selected];
 		if (!impactAvailableYears.has(year)) {
-			drawEmptyChart(context, width, height, `The validated ${year} footprint shard is still staging.`);
-			$("#wdImpactReadout").textContent = "Footprints are enabled only after the complete archive passes track-ID, grid-shape and checksum validation.";
+			const expectedYears = catalogueYearMaximum() - catalogueYearMinimum() + 1;
+			const progress = `${impactAvailableYears.size} of ${expectedYears} catalogue years`;
+			const message = impactArchiveStatus === "staging"
+				? `Footprint staging: ${progress} complete; ${year} is not available yet.`
+				: `The ${year} precipitation footprint is not available.`;
+			drawEmptyChart(context, width, height, message);
+			$("#wdImpactReadout").textContent = impactArchiveStatus === "staging" ? "Each completed year is exposed after track-ID, grid-shape and checksum validation." : "The footprint archive is unavailable or does not contain this year.";
 			$("#wdRetryImpact").hidden = true;
 			return;
 		}
@@ -2221,9 +2248,9 @@
 		const years = [];
 		for (let year = catalogueYearMinimum(); year <= catalogueYearMaximum(); year += 1) years.push(year);
 		const counts = new Map(years.map((year) => [year, 0]));
-		for (const index of filtered) counts.set(systemYear(index), (counts.get(systemYear(index)) || 0) + 1);
+		for (const index of filtered) counts.set(CAT.year[index], (counts.get(CAT.year[index]) || 0) + 1);
 		const values = years.map((year) => counts.get(year));
-		const plot = chartFrame(chart.context, chart.width, chart.height, { left: 48, right: 20, top: 22, bottom: 40, yMax: niceMaximum(values), yLabel: "Genesis systems", xLabel: state.yearBasis === "winter" ? "Winter year" : "Genesis year" });
+		const plot = chartFrame(chart.context, chart.width, chart.height, { left: 48, right: 20, top: 22, bottom: 40, yMax: niceMaximum(values), yLabel: "Genesis systems", xLabel: "Genesis year" });
 		const barWidth = plot.width / years.length;
 		chart.context.fillStyle = withAlpha(css("--mla-indigo", "#233f78"), 0.72);
 		values.forEach((value, index) => {
@@ -2482,7 +2509,7 @@
 	}
 
 	function downloadSummaries() {
-		const header = ["atlas_name", "track_id", "genesis_utc", "lysis_utc", "calendar_year", "winter_year", "genesis_lon_deg_e", "genesis_lat_deg_n", "genesis_region", "lysis_lon_deg_e", "lysis_lat_deg_n", "lysis_longitude_sector", "route_archetype", "spell_id", "spell_size", `first_crossing_${state.crossingLongitude}e_utc`, "fix_count", "duration_h", "path_length_km", "peak_vorticity_450_300hpa_1e-5_s-1", "vorticity_catalogue_percentile", "peak_24h_precipitation_mm", "precipitation_catalogue_percentile", "dominant_precipitation_region", "karakoram_peak_24h_mm", "hindu_kush_peak_24h_mm", "western_himalaya_peak_24h_mm", "central_himalaya_peak_24h_mm", "north_india_peak_24h_mm"];
+		const header = ["atlas_name", "track_id", "genesis_utc", "lysis_utc", "calendar_year", "winter_year", "genesis_lon_deg_e", "genesis_lat_deg_n", "genesis_region", "lysis_lon_deg_e", "lysis_lat_deg_n", "lysis_longitude_sector", "route_archetype", "spell_id", "spell_size", `first_crossing_${state.crossingLongitude}e_utc`, "track_point_count", "duration_h", "path_length_km", "peak_vorticity_450_300hpa_1e-5_s-1", "vorticity_catalogue_percentile", "peak_24h_precipitation_mm", "precipitation_catalogue_percentile", "dominant_precipitation_region", "karakoram_peak_24h_mm", "hindu_kush_peak_24h_mm", "western_himalaya_peak_24h_mm", "central_himalaya_peak_24h_mm", "north_india_peak_24h_mm"];
 		const rows = filtered.map((index) => {
 			const [start, length] = OFF[index];
 			const last = start + length - 1;
@@ -2527,7 +2554,7 @@
 			schema: "western-disturbances-atlas-query-v1",
 			catalogue: CONFIG.catalogueVersion,
 			catalogue_asset: CONFIG.catalogue,
-			fix_asset: CONFIG.fixes,
+			track_point_asset: CONFIG.fixes,
 			generated_utc: new Date().toISOString(),
 			result_count: filtered.length,
 			selected_atlas_name: selected >= 0 ? trackName(selected) : null,
@@ -2545,13 +2572,13 @@
 
 	function downloadSelectedFixes() {
 		if (selected < 0) {
-			showToast("Select a disturbance before downloading fixes.");
+			showToast("Select a disturbance before downloading track points.");
 			return;
 		}
 		const index = selected;
 		const points = trackPoints(index);
 		const rows = points.map((point, j) => [trackName(index), CAT.id[index], isoTrackTime(index, j), point.elapsedHours, point.lon, point.lat, point.vorticity, point.rain ?? "", point.speed, point.path, point.displacement]);
-		downloadBlob(csvText(["atlas_name", "track_id", "time_utc", "hours_since_genesis", "longitude_deg_e", "latitude_deg_n", "vorticity_450_300hpa_1e-5_s-1", "precipitation_24h_mm", "translation_speed_m_s-1", "cumulative_path_km", "displacement_from_genesis_km"], rows), "text/csv;charset=utf-8", `${trackName(index).toLowerCase().replaceAll(" ", "-")}-fixes.csv`);
+		downloadBlob(csvText(["atlas_name", "track_id", "time_utc", "hours_since_genesis", "longitude_deg_e", "latitude_deg_n", "vorticity_450_300hpa_1e-5_s-1", "precipitation_24h_mm", "translation_speed_m_s-1", "cumulative_path_km", "displacement_from_genesis_km"], rows), "text/csv;charset=utf-8", `${trackName(index).toLowerCase().replaceAll(" ", "-")}-track-points.csv`);
 	}
 
 	function serialisableFilters() {
@@ -2559,8 +2586,7 @@
 			time_mode: state.timeMode,
 			active_date_interval: state.timeMode === "dates" ? [state.dateMin, state.dateMax] : null,
 			genesis_months: [...state.months].sort((a, b) => a - b),
-			year_definition: state.yearBasis,
-			genesis_or_winter_year: state.timeMode === "years" ? [state.yearMin, state.yearMax] : null,
+			genesis_year: state.timeMode === "years" ? [state.yearMin, state.yearMax] : null,
 			genesis_regions: [...state.genesisRegions].sort((a, b) => a - b).map((region) => GENESIS_REGIONS[region].longLabel),
 			lysis_longitude_sectors: [...state.lysisRegions].sort((a, b) => a - b).map((region) => LYSIS_REGIONS[region].label),
 			route_archetypes: [...state.routes].sort((a, b) => a - b).map((route) => routeDefinitions[route]?.label).filter(Boolean),
@@ -2603,7 +2629,6 @@
 
 	function readUrlState() {
 		const params = new URLSearchParams(window.location.search);
-		if (params.get("yearbasis") === "winter") state.yearBasis = "winter";
 		if (params.has("months")) {
 			const months = params.get("months").split(",").map(Number).filter((month) => month >= 1 && month <= 12);
 			if (months.length) state.months = new Set(months);
@@ -2636,17 +2661,22 @@
 		if (["auto", "density", "tracks", "genesis", "lysis", "none"].includes(params.get("layer"))) state.mapLayer = params.get("layer");
 		if (["single", "intensity", "region", "year"].includes(params.get("colour"))) state.mapColour = params.get("colour");
 		if (params.get("weather") === "none" || availableWeatherFields.has(params.get("weather"))) state.weatherLayer = params.get("weather");
+		if (state.weatherLayer !== "none") {
+			if (!params.has("layer")) state.mapLayer = "none";
+			state.hideTracksWithWeather = state.mapLayer === "none";
+		}
 		if (params.has("evolve")) { const metrics = params.get("evolve").split(",").filter((metric) => EVOLUTION_METRICS[metric]).slice(0, 3); if (metrics.length) evolutionMetrics = metrics; }
 		if (params.has("profile")) { const metrics = params.get("profile").split(",").filter((metric) => EVOLUTION_METRICS[metric]).slice(0, 6); if (metrics.length) profileMetrics = metrics; }
 		if (VERTICAL_METRICS[params.get("vertical")]) $("#wdVerticalMetric").value = params.get("vertical");
 		if (params.get("tracks") === "0") state.mapLayer = "none";
 		if (params.get("boxes") === "0") state.showRegionBoxes = false;
 		if (params.get("weathertracks") === "1") state.hideTracksWithWeather = false;
-		if (params.has("cross")) state.crossingLongitude = clamp(Number(params.get("cross")) || 70, -20, 145);
+		if (params.has("cross")) state.crossingLongitude = clamp(Number(params.get("cross")) || 60, -20, 145);
 		if (params.has("at")) setMapTimeFocus(params.get("at"), { silent: true });
 		if (["explore", "climatology", "extremes", "data"].includes(params.get("tab"))) activeTab = params.get("tab");
 		if (params.has("selected")) selected = idToIndex.get(params.get("selected")) ?? -1;
-		if (selected >= 0 && params.has("fix")) focusFix = clamp(Number(params.get("fix")) || 0, 0, OFF[selected][1] - 1);
+		const pointParameter = params.has("point") ? params.get("point") : params.get("fix");
+		if (selected >= 0 && pointParameter != null) focusFix = clamp(Number(pointParameter) || 0, 0, OFF[selected][1] - 1);
 		if (params.has("view")) {
 			const values = params.get("view").split(",").map(Number);
 			if (values.length === 4 && values.every(Number.isFinite) && values[1] > values[0] && values[3] > values[2]) {
@@ -2665,7 +2695,6 @@
 		if (!DATA) return;
 		const params = new URLSearchParams();
 		params.set("months", [...state.months].sort((a, b) => a - b).join(","));
-		if (state.yearBasis === "winter") params.set("yearbasis", "winter");
 		if (state.timeMode === "dates") params.set("dates", `${state.dateMin},${state.dateMax}`);
 		else if (state.yearMin !== catalogueYearMinimum() || state.yearMax !== catalogueYearMaximum()) params.set("years", `${state.yearMin},${state.yearMax}`);
 		if (state.intensityMin) params.set("ip", state.intensityMin);
@@ -2683,14 +2712,14 @@
 		if (state.mapColour !== "single") params.set("colour", state.mapColour);
 		if (state.weatherLayer !== "none") params.set("weather", state.weatherLayer);
 		if (!state.hideTracksWithWeather) params.set("weathertracks", "1");
-		if (state.crossingLongitude !== 70) params.set("cross", state.crossingLongitude);
+		if (state.crossingLongitude !== 60) params.set("cross", state.crossingLongitude);
 		if (mapTimeFocus) params.set("at", mapTimeFocus);
 		if (!(evolutionMetrics.length === 1 && evolutionMetrics[0] === "vorticity")) params.set("evolve", evolutionMetrics.join(","));
 		if (!(profileMetrics.length === 2 && profileMetrics[0] === "vorticity" && profileMetrics[1] === "rain")) params.set("profile", profileMetrics.join(","));
-		if ($("#wdVerticalMetric").value !== "wind_speed") params.set("vertical", $("#wdVerticalMetric").value);
+		if ($("#wdVerticalMetric").value !== "vorticity") params.set("vertical", $("#wdVerticalMetric").value);
 		if (!state.showRegionBoxes) params.set("boxes", "0");
 		if (activeTab !== "explore") params.set("tab", activeTab);
-		if (selected >= 0) { params.set("selected", CAT.id[selected]); params.set("fix", focusFix); }
+		if (selected >= 0) { params.set("selected", CAT.id[selected]); params.set("point", focusFix); }
 		if (!viewsEqual(map.view, DEFAULT_VIEW)) params.set("view", [map.view.west, map.view.east, map.view.south, map.view.north].map((value) => value.toFixed(2)).join(","));
 		const next = `${window.location.pathname}${params.size ? `?${params}` : ""}${window.location.hash}`;
 		window.history.replaceState(null, "", next);
@@ -2809,16 +2838,12 @@
 		return null;
 	}
 
-	function systemYear(index) {
-		return state.yearBasis === "winter" ? winterYear(index) : CAT.year[index];
-	}
-
 	function catalogueYearMinimum() {
 		return Math.min(...CAT.year);
 	}
 
 	function catalogueYearMaximum() {
-		return Math.max(...CAT.year) + (state.yearBasis === "winter" && CAT.month.some((month, index) => month === 12 && CAT.year[index] === Math.max(...CAT.year)) ? 1 : 0);
+		return Math.max(...CAT.year);
 	}
 
 	function winterYear(index) {

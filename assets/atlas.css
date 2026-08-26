@@ -540,6 +540,9 @@ body { background: #f7f1e2; }
 .wd-chart-empty { display: grid; place-items: center; color: var(--mla-muted); font-size: 13px; }
 .wd-footnote { color: var(--mla-faint); font-size: 11px; }
 .wd-download-note { margin-top: 9px !important; font-size: 12px; }
+.wd-relationships { margin-top: 14px; }
+.wd-relationship-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.wd-relationship-grid .mla-match-box { margin-top: 0; }
 
 @media (max-width: 900px) {
 	.wd-filter-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }

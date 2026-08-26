@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import gzip
 import hashlib
 import json
@@ -27,6 +28,52 @@ def sha256(path: Path) -> str:
 		for block in iter(lambda: stream.read(1024 * 1024), b""):
 			digest.update(block)
 	return digest.hexdigest()
+
+
+def refresh_staging_manifest(output_dir: Path, cat: dict[str, list]) -> dict:
+	"""Atomically publish every completed, internally consistent year shard."""
+	minimum_year, maximum_year = min(cat["year"]), max(cat["year"])
+	expected_years = maximum_year - minimum_year + 1
+	output_dir.mkdir(parents=True, exist_ok=True)
+	lock_path = output_dir / ".impact-manifest.lock"
+	with lock_path.open("a", encoding="utf-8") as lock:
+		fcntl.flock(lock, fcntl.LOCK_EX)
+		entries = []
+		for year in range(minimum_year, maximum_year + 1):
+			metadata_path = output_dir / str(year) / f"{year}.u16.json"
+			payload_path = output_dir / str(year) / f"{year}.u16.gz"
+			if not metadata_path.is_file() or not payload_path.is_file():
+				continue
+			metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+			expected_ids = [track_id for track_id, genesis_year in zip(cat["id"], cat["year"]) if genesis_year == year]
+			if metadata.get("track_ids") != expected_ids or metadata.get("shape") != [len(expected_ids), 20, 40]:
+				continue
+			checksum = sha256(payload_path)
+			if metadata.get("sha256") != checksum:
+				continue
+			entries.append({
+				"year": year,
+				"tracks": len(expected_ids),
+				"payload": payload_path.relative_to(output_dir).as_posix(),
+				"metadata": metadata_path.relative_to(output_dir).as_posix(),
+				"bytes": payload_path.stat().st_size,
+				"sha256": checksum,
+			})
+		manifest = {
+			"schema": "western-disturbances-atlas-impact-archive-v1",
+			"status": "complete" if len(entries) == expected_years else "staging",
+			"definition": "ERA5 total precipitation accumulated hourly from published genesis through lysis on a 1-degree 60-100E, 20-40N grid",
+			"expected_years": expected_years,
+			"years": entries,
+			"tracks": sum(entry["tracks"] for entry in entries),
+			"total_payload_bytes": sum(entry["bytes"] for entry in entries),
+			"built_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+		}
+		path = output_dir / "impact-manifest.json"
+		temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+		temporary.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+		os.replace(temporary, path); path.chmod(0o644)
+		return manifest
 
 
 def precipitation(dataset: xr.Dataset) -> xr.DataArray:
@@ -63,7 +110,9 @@ def prepare_month(path: Path) -> tuple[xr.DataArray, list[float]]:
 
 def main() -> None:
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--year", type=int, required=True)
+	mode = parser.add_mutually_exclusive_group(required=True)
+	mode.add_argument("--year", type=int)
+	mode.add_argument("--refresh-manifest", action="store_true")
 	parser.add_argument("--source-dir", type=Path, default=Path("/home/users/kieran/ncas/data/era5-incompass/hourly_precip_SA"))
 	parser.add_argument("--catalogue", type=Path, default=ROOT / "assets/wd-atlas-catalogue-v6.json.gz")
 	parser.add_argument("--times", type=Path, default=ROOT / "assets/wd-atlas-times-v6.i32.gz")
@@ -72,6 +121,10 @@ def main() -> None:
 	with gzip.open(args.catalogue, "rt", encoding="utf-8") as stream:
 		catalogue = json.load(stream)
 	cat, offsets = catalogue["cat"], np.asarray(catalogue["off"], dtype=np.int64)
+	if args.refresh_manifest:
+		manifest = refresh_staging_manifest(args.output_dir, cat)
+		print(json.dumps({key: value for key, value in manifest.items() if key != "years"}, indent=2))
+		return
 	point_hours = np.frombuffer(gzip.decompress(args.times.read_bytes()), dtype="<i4")
 	track_indices = np.flatnonzero(np.asarray(cat["year"]) == args.year)
 	track_ids = np.asarray(cat["id"])[track_indices]
@@ -120,6 +173,7 @@ def main() -> None:
 	}
 	metadata_path = data_path.with_suffix(".json")
 	metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8"); metadata_path.chmod(0o644)
+	refresh_staging_manifest(args.output_dir, cat)
 	print(json.dumps({key: value for key, value in metadata.items() if key != "track_ids"}, indent=2))
 
 

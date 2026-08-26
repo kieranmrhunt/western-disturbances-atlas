@@ -59,7 +59,9 @@ def main() -> None:
 		})
 	manifest = {
 		"schema": "western-disturbances-atlas-impact-archive-v1",
+		"status": "complete",
 		"definition": "ERA5 total precipitation accumulated hourly from published genesis through lysis on a 1-degree 60-100E, 20-40N grid",
+		"expected_years": max(cat["year"]) - min(cat["year"]) + 1,
 		"years": entries,
 		"tracks": sum(entry["tracks"] for entry in entries),
 		"total_payload_bytes": sum(entry["bytes"] for entry in entries),

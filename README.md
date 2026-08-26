@@ -1,13 +1,13 @@
 # Western Disturbance Atlas
 
-Static GitHub Pages atlas for the corrected ERA5-derived WD v6 catalogue: 16,298 western-disturbance trajectories and 460,411 three-hourly fixes from 1950–2025.
+Static GitHub Pages atlas for the corrected ERA5-derived WD v6 catalogue: 16,298 western-disturbance trajectories and 460,411 three-hourly track points from 1950–2025.
 
 The interface shares the visual language and main workflow of the [Monsoon Low-Pressure System Atlas](https://kieranmrhunt.github.io/monsoon-low-atlas/) while retaining WD-specific diagnostics and removing LPS-specific concepts.
 
 ## Scientific conventions
 
 - `track_id` identifies one Lagrangian trajectory and is the atlas grain for maps, counts, filtering and exports.
-- Genesis and lysis are the first and last published three-hourly fixes.
+- Genesis and lysis are the first and last published three-hourly track points.
 - Display names are `WD YYYY NNN`, using genesis year and within-year genesis order; the original `track_id` remains in exports and deep links.
 - Winter years assign December genesis events to the following year. The configurable crossing marker is the first linearly interpolated crossing of that longitude and does not realign trajectories.
 - Intensity is track-centred relative vorticity averaged through the 450–300 hPa layer, spectrally truncated to T42, in 10⁻⁵ s⁻¹. This is the upper-tropospheric WD diagnostic; the site does not substitute 850-hPa LPS vorticity.
@@ -19,7 +19,7 @@ The interface shares the visual language and main workflow of the [Monsoon Low-P
 - Eight exploratory route archetypes use standardised longitude and latitude interpolated at nine elapsed-life fractions. Multi-WD spells link systems in the same winter and dominant precipitation region when the next genesis occurs within 72 hours of the latest lysis.
 - Catalogue analogues are ranked principally by standardised full-trajectory shape, with smaller genesis-month, lifetime, intensity and precipitation penalties.
 - ERA5-derived catalogue extremes are internal diagnostics, not authoritative meteorological records.
-- The selected-track slider and evolution chart both follow actual catalogue fix times. Independent gridded ERA5 backgrounds provide contemporaneous 350-hPa vorticity, trailing 24 h precipitation, 500-hPa wind, temperature and specific humidity, and mean-sea-level pressure.
+- The selected-track slider and evolution chart both follow actual catalogue track-point times. Independent gridded ERA5 backgrounds provide contemporaneous 350-hPa vorticity, trailing 24 h precipitation, 500-hPa wind, temperature and specific humidity, and mean-sea-level pressure.
 
 The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSISO filters, cyclone names and Indian-state precipitation fills.
 
@@ -29,12 +29,12 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 - Deep-linkable filter, tab, map and selection state.
 - Individual tracks by default, plus unique-track density, genesis, lysis and selected-track-only layers; every data layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order. The selected trajectory is black.
 - Contemporaneous ERA5 overlays for positive 350-hPa vorticity, trailing 24 h precipitation, 500-hPa wind speed, temperature and specific humidity, and mean-sea-level pressure. New archive-wide fields stay disabled until their validation manifest exists.
-- Per-track dossiers, previous/next navigation, nearest trajectory analogues, actual-UTC fix stepping, and accessible lifecycle plots. Selected-system evolution supports three line variables with independent axes while keeping precipitation bars visible; subset evolution supports six small multiples and an all-catalogue reference.
-- Selected-system time–pressure sections at 850, 700 and 500 hPa, first-meridian-crossing markers, daily 200-hPa jet relationship diagnostics, and lazy lifetime precipitation footprints. Thirty-four fixes on 29–31 October 2023 are absent from the jet source and remain unavailable.
+- Per-track dossiers, previous/next navigation, nearest trajectory analogues, actual-UTC track-point stepping, and accessible lifecycle plots. Selected-system evolution supports three line variables with independent axes while keeping precipitation bars visible; subset evolution supports six small multiples and a fixed all-catalogue reference scale.
+- Selected-system time–pressure sections of vorticity and other ERA5 fields at 850, 700 and 500 hPa, first-meridian-crossing markers, daily 200-hPa jet relationship diagnostics, and lazy lifetime precipitation footprints. Thirty-four track points on 29–31 October 2023 are absent from the jet source and remain unavailable.
 - Genesis-month NOAA PSL ONI, NAO, AO and PNA filters plus daily BOM RMM MJO phase. These are regime descriptors rather than causal attribution.
 - Filter-aware annual, seasonal, impact-region and genesis-density climatologies.
 - Filter-aware catalogue extremes.
-- Summary CSV, track GeoJSON, reproducibility JSON and selected-fix CSV exports.
+- Summary CSV, track GeoJSON, reproducibility JSON and selected-track-point CSV exports.
 - Responsive mobile layout and keyboard-accessible tab, table and chart alternatives.
 
 ## Deployment
@@ -51,10 +51,10 @@ Then open `http://localhost:8000/`.
 
 ## Asset layout
 
-- `assets/wd-atlas-catalogue-v6.json.gz`: catalogue metadata, track summaries, fix offsets and evolution-field descriptors.
-- `assets/wd-atlas-fixes-v6.i16.gz`: concatenated `int16` longitude ×100, latitude ×100, vorticity ×10 and precipitation ×100 arrays.
-- `assets/wd-atlas-times-v6.i32.gz`: actual fix times as integer hours since 1950-01-01 UTC, preserving gaps bridged by the tracker.
-- `assets/wd-atlas-diag-v6-*.f32.gz`: one `float32` per-fix diagnostic per file, fetched only when selected.
+- `assets/wd-atlas-catalogue-v6.json.gz`: catalogue metadata, track summaries, track-point offsets and evolution-field descriptors.
+- `assets/wd-atlas-fixes-v6.i16.gz`: concatenated track-point `int16` longitude ×100, latitude ×100, vorticity ×10 and precipitation ×100 arrays.
+- `assets/wd-atlas-times-v6.i32.gz`: actual track-point times as integer hours since 1950-01-01 UTC, preserving gaps bridged by the tracker.
+- `assets/wd-atlas-diag-v6-*.f32.gz`: one `float32` per track point per diagnostic file, fetched only when selected.
 - `assets/wd-atlas-routes-v1.json.gz`: eight trajectory-shape archetypes and track assignments.
 - `assets/wd-atlas-climate-v1.json.gz`: genesis-time NOAA and BOM regime values and categories.
 - `assets/wd-atlas-jet-v1.json`: daily 200-hPa jet diagnostic definitions and availability.
