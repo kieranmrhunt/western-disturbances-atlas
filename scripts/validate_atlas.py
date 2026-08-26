@@ -68,6 +68,7 @@ def main() -> None:
     check('id="wdCrossingLongitude" type="number" min="-20" max="145" step="1" value="60"' in html, "Crossing meridian does not default to 60°E")
     check('<option value="vorticity">Vorticity</option>' in html, "Vertical vorticity option is missing or not the default")
     check('id="wdImpactChart"' in html and 'id="wdSpellChart"' in html, "Impact or sequence chart is missing")
+    check("Solid line: median · filled band: IQR · dashed line: all-WD median." in html, "Subset-evolution encoding key is missing")
     check("rainfall" not in html.lower(), "User-facing rainfall terminology remains in index.html")
     check("16,298" in html and "460,411" in html, "Static v6 counts are missing")
     check("10.5281/zenodo.18328597" in html, "Dataset concept DOI is missing")
