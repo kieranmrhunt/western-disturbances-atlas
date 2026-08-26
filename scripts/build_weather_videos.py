@@ -100,11 +100,14 @@ def arguments() -> argparse.Namespace:
 	parser.add_argument("--month")
 	parser.add_argument("--month-manifest", type=Path)
 	parser.add_argument("--task-id", type=int)
+	parser.add_argument("--chunk-index", type=int)
+	parser.add_argument("--chunks-per-month", type=int, default=1)
 	parser.add_argument("--catalogue", type=Path)
 	parser.add_argument("--write-month-manifest", type=Path)
 	parser.add_argument("--fps", type=int, default=FPS)
 	parser.add_argument("--ffmpeg", default="ffmpeg")
 	parser.add_argument("--overwrite", action="store_true")
+	parser.add_argument("--assemble-chunks", action="store_true")
 	parser.add_argument("--finalize", action="store_true")
 	return parser.parse_args()
 
@@ -248,7 +251,13 @@ def crop_and_coarsen(field: xr.DataArray, spec: dict) -> tuple[xr.DataArray, lis
 	return field, bounds
 
 
-def load_field(source: Path, field_name: str, month: str) -> tuple[xr.DataArray, list[float], list[Path]]:
+def load_field(
+	source: Path,
+	field_name: str,
+	month: str,
+	chunk_index: int | None = None,
+	chunks_per_month: int = 1,
+) -> tuple[xr.DataArray, list[float], list[Path]]:
 	spec = FIELD_SPECS[field_name]
 	datasets = [xr.open_dataset(source)]
 	sources = [source]
@@ -276,6 +285,13 @@ def load_field(source: Path, field_name: str, month: str) -> tuple[xr.DataArray,
 	field, bounds = crop_and_coarsen(field, spec)
 	if field_name == "precipitation":
 		field = field.rolling(time=24, min_periods=24).sum().sel(time=current_times)
+	if chunk_index is not None:
+		if chunks_per_month < 1 or not 0 <= chunk_index < chunks_per_month:
+			raise ValueError(f"Invalid chunk {chunk_index} of {chunks_per_month}")
+		indices = np.array_split(np.arange(field.sizes["time"]), chunks_per_month)[chunk_index]
+		if not len(indices):
+			raise ValueError(f"Weather chunk {chunk_index} of {chunks_per_month} is empty")
+		field = field.isel(time=slice(int(indices[0]), int(indices[-1]) + 1))
 	field.load()
 	for dataset in datasets:
 		dataset.close()
@@ -298,6 +314,161 @@ def colourise(values: np.ndarray, spec: dict) -> np.ndarray:
 	return np.concatenate((rgb, mask), axis=1)
 
 
+def valid_video(destination: Path, metadata_path: Path, spec: dict) -> bool:
+	if not destination.is_file() or not metadata_path.is_file():
+		return False
+	try:
+		metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+		return metadata.get("sha256") == sha256(destination) and metadata.get("schema") == spec["schema"]
+	except (OSError, ValueError, json.JSONDecodeError):
+		return False
+
+
+def video_command(args: argparse.Namespace, width: int, height: int, destination: Path) -> list[str]:
+	return [
+		args.ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+		"-f", "rawvideo", "-pix_fmt", "rgb24", "-s:v", f"{width * 2}x{height}",
+		"-r", str(args.fps), "-i", "-", "-an", "-c:v", "libvpx-vp9",
+		"-crf", "28", "-b:v", "0", "-deadline", "good", "-cpu-used", "3",
+		"-pix_fmt", "yuv420p", "-g", str(args.fps), "-f", "webm", str(destination),
+	]
+
+
+def chunk_paths(args: argparse.Namespace, month: str, chunk_index: int) -> tuple[Path, Path]:
+	stem = f"chunk-{chunk_index:02d}-of-{args.chunks_per_month:02d}"
+	directory = args.output_dir / "_chunks" / args.field / month[:4] / month
+	payload = directory / f"{stem}.rgb24.gz"
+	return payload, payload.with_suffix(".json")
+
+
+def render_chunk(args: argparse.Namespace, month: str) -> None:
+	if args.output_dir is None or args.chunk_index is None:
+		raise ValueError("--output-dir and --chunk-index are required for chunk rendering")
+	spec = FIELD_SPECS[args.field]
+	destination = args.output_dir / args.field / month[:4] / f"{month}.webm"
+	metadata_path = destination.with_suffix(".json")
+	if valid_video(destination, metadata_path, spec) and not args.overwrite:
+		print(f"{month}: final video already complete")
+		return
+	payload, chunk_metadata_path = chunk_paths(args, month, args.chunk_index)
+	if payload.is_file() and chunk_metadata_path.is_file() and not args.overwrite:
+		metadata = json.loads(chunk_metadata_path.read_text(encoding="utf-8"))
+		if (
+			metadata.get("sha256") == sha256(payload)
+			and metadata.get("field_key") == args.field
+			and metadata.get("month") == month
+			and metadata.get("chunk_index") == args.chunk_index
+			and metadata.get("chunks_per_month") == args.chunks_per_month
+		):
+			print(f"{month} chunk {args.chunk_index}: already complete")
+			return
+	source_dir = args.source_dir or spec["source_dir"]
+	source = source_dir / f"{month}.nc"
+	if not source.is_file():
+		raise FileNotFoundError(source)
+	payload.parent.mkdir(parents=True, exist_ok=True)
+	for directory in (args.output_dir, args.output_dir / "_chunks", args.output_dir / "_chunks" / args.field, payload.parent.parent, payload.parent):
+		directory.chmod(0o2755)
+	field, bounds, sources = load_field(source, args.field, month, args.chunk_index, args.chunks_per_month)
+	times = pd.DatetimeIndex(field.time.values)
+	height = int(field.sizes["latitude"])
+	width = int(field.sizes["longitude"])
+	temporary = payload.with_name(f".{payload.name}.tmp-{os.getpid()}")
+	try:
+		with temporary.open("wb") as raw:
+			with gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=6, mtime=0) as stream:
+				for index in range(len(times)):
+					stream.write(colourise(field.isel(time=index).values, spec).tobytes(order="C"))
+		os.replace(temporary, payload)
+		payload.chmod(0o644)
+	finally:
+		field.close()
+		temporary.unlink(missing_ok=True)
+	metadata = {
+		"schema": "western-disturbances-atlas-weather-chunk-v1", "field_key": args.field,
+		"month": month, "chunk_index": args.chunk_index, "chunks_per_month": args.chunks_per_month,
+		"source": str(source), "source_previous": str(sources[1]) if len(sources) > 1 else None,
+		"step_hours": spec["step_hours"], "frames": len(times), "width": width, "height": height,
+		"bounds_west_south_east_north": bounds, "first_time_utc": times[0].isoformat() + "Z",
+		"last_time_utc": times[-1].isoformat() + "Z", "sha256": sha256(payload),
+		"bytes": payload.stat().st_size, "built_utc": datetime.now(timezone.utc).isoformat(),
+	}
+	chunk_metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+	chunk_metadata_path.chmod(0o644)
+	print(json.dumps(metadata, indent=2, sort_keys=True))
+
+
+def assemble_chunks(args: argparse.Namespace, month: str) -> None:
+	if args.output_dir is None:
+		raise ValueError("--output-dir is required for chunk assembly")
+	spec = FIELD_SPECS[args.field]
+	destination = args.output_dir / args.field / month[:4] / f"{month}.webm"
+	metadata_path = destination.with_suffix(".json")
+	if valid_video(destination, metadata_path, spec) and not args.overwrite:
+		print(f"{month}: already complete")
+		return
+	chunks: list[tuple[Path, dict]] = []
+	for chunk_index in range(args.chunks_per_month):
+		payload, chunk_metadata_path = chunk_paths(args, month, chunk_index)
+		if not payload.is_file() or not chunk_metadata_path.is_file():
+			raise FileNotFoundError(f"Incomplete weather chunk {month} {chunk_index}/{args.chunks_per_month}")
+		metadata = json.loads(chunk_metadata_path.read_text(encoding="utf-8"))
+		if metadata.get("sha256") != sha256(payload):
+			raise ValueError(f"Checksum mismatch for weather chunk {month} {chunk_index}")
+		if metadata.get("field_key") != args.field or metadata.get("month") != month:
+			raise ValueError(f"Identity mismatch for weather chunk {month} {chunk_index}")
+		if metadata.get("chunk_index") != chunk_index or metadata.get("chunks_per_month") != args.chunks_per_month:
+			raise ValueError(f"Sequence mismatch for weather chunk {month} {chunk_index}")
+		chunks.append((payload, metadata))
+	width, height = int(chunks[0][1]["width"]), int(chunks[0][1]["height"])
+	bounds = chunks[0][1]["bounds_west_south_east_north"]
+	if any((item[1]["width"], item[1]["height"], item[1]["bounds_west_south_east_north"]) != (width, height, bounds) for item in chunks):
+		raise ValueError(f"Grid mismatch among weather chunks for {month}")
+	frames = sum(int(item[1]["frames"]) for item in chunks)
+	expected = calendar.monthrange(int(month[:4]), int(month[4:]))[1] * 24 // int(spec["step_hours"])
+	if frames != expected:
+		raise ValueError(f"Weather chunks for {month} have {frames} frames; expected {expected}")
+	destination.parent.mkdir(parents=True, exist_ok=True)
+	for directory in (args.output_dir, args.output_dir / args.field, destination.parent):
+		directory.chmod(0o2755)
+	temporary = destination.with_name(f".{destination.name}.tmp-{os.getpid()}")
+	command = video_command(args, width, height, temporary)
+	process = subprocess.Popen(command, stdin=subprocess.PIPE)
+	try:
+		assert process.stdin is not None
+		for payload, _ in chunks:
+			with gzip.open(payload, "rb") as stream:
+				for block in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+					process.stdin.write(block)
+		process.stdin.close()
+		if process.wait():
+			raise subprocess.CalledProcessError(process.returncode, command)
+		os.replace(temporary, destination)
+		destination.chmod(0o644)
+	except Exception:
+		if process.stdin and not process.stdin.closed:
+			try:
+				process.stdin.close()
+			except BrokenPipeError:
+				pass
+		process.kill(); process.wait(); temporary.unlink(missing_ok=True)
+		raise
+	metadata = {
+		"schema": spec["schema"], "field_key": args.field, "field": spec["label"], "units": spec["units"],
+		"month": month, "source": chunks[0][1]["source"], "source_previous": chunks[0][1].get("source_previous"),
+		"step_hours": spec["step_hours"], "frames_per_second": args.fps, "frames": frames,
+		"width": width, "height": height, "encoded_width": width * 2, "mask_layout": "right-half-luma",
+		"bounds_west_south_east_north": bounds, "first_time_utc": chunks[0][1]["first_time_utc"],
+		"last_time_utc": chunks[-1][1]["last_time_utc"],
+		"colour_stops": [{"value": value, "rgb": list(colour)} for value, colour in spec["colour_stops"]],
+		"sha256": sha256(destination), "bytes": destination.stat().st_size,
+		"built_utc": datetime.now(timezone.utc).isoformat(), "assembled_from_chunks": args.chunks_per_month,
+	}
+	metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+	metadata_path.chmod(0o644)
+	print(json.dumps(metadata, indent=2, sort_keys=True))
+
+
 def render_month(args: argparse.Namespace, month: str) -> None:
 	if args.output_dir is None:
 		raise ValueError("--output-dir is required when rendering")
@@ -308,11 +479,9 @@ def render_month(args: argparse.Namespace, month: str) -> None:
 		raise FileNotFoundError(source)
 	destination = args.output_dir / args.field / month[:4] / f"{month}.webm"
 	metadata_path = destination.with_suffix(".json")
-	if destination.is_file() and metadata_path.is_file() and not args.overwrite:
-		metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-		if metadata.get("sha256") == sha256(destination) and metadata.get("schema") == spec["schema"]:
-			print(f"{month}: already complete")
-			return
+	if valid_video(destination, metadata_path, spec) and not args.overwrite:
+		print(f"{month}: already complete")
+		return
 	destination.parent.mkdir(parents=True, exist_ok=True)
 	for directory in (args.output_dir, args.output_dir / args.field, destination.parent):
 		directory.chmod(0o2755)
@@ -321,13 +490,7 @@ def render_month(args: argparse.Namespace, month: str) -> None:
 	times = pd.DatetimeIndex(field.time.values)
 	height = int(field.sizes["latitude"])
 	width = int(field.sizes["longitude"])
-	command = [
-		args.ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-		"-f", "rawvideo", "-pix_fmt", "rgb24", "-s:v", f"{width * 2}x{height}",
-		"-r", str(args.fps), "-i", "-", "-an", "-c:v", "libvpx-vp9",
-		"-crf", "28", "-b:v", "0", "-deadline", "good", "-cpu-used", "3",
-		"-pix_fmt", "yuv420p", "-g", str(args.fps), "-f", "webm", str(temporary),
-	]
+	command = video_command(args, width, height, temporary)
 	process = subprocess.Popen(command, stdin=subprocess.PIPE)
 	try:
 		assert process.stdin is not None
@@ -412,6 +575,10 @@ def main() -> None:
 		write_month_manifest(args.catalogue, args.write_month_manifest)
 	elif args.finalize:
 		finalize(args)
+	elif args.assemble_chunks:
+		assemble_chunks(args, resolve_month(args))
+	elif args.chunk_index is not None:
+		render_chunk(args, resolve_month(args))
 	else:
 		render_month(args, resolve_month(args))
 

@@ -76,15 +76,30 @@ python scripts/build_weather_videos.py \
   --output-dir /home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1
 ```
 
-The Slurm array renders the complete archive:
+The original month-at-a-time Slurm array is retained for small repairs. For a
+full archive build, use four resumable sub-month chunks so a slow source read
+cannot occupy an array slot for six hours:
 
 ```bash
-mkdir -p hpc-logs
-sbatch scripts/build_weather_videos.slurm \
+chunk_job=$(sbatch --parsable scripts/build_weather_chunks.slurm \
   data/wd-weather-months.csv \
   /home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1 \
-  vorticity350
+  wind500)
+assemble_job=$(sbatch --parsable --dependency=afterany:${chunk_job} \
+  scripts/assemble_weather_videos.slurm \
+  data/wd-weather-months.csv \
+  /home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1 \
+  wind500)
+sbatch --dependency=afterany:${assemble_job} scripts/finalize_weather_archive.slurm \
+  data/wd-weather-months.csv \
+  /home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1 \
+  wind500
 ```
+
+Each chunk contains one quarter of a month as deterministic gzip-compressed
+RGB frames. The assembly array validates all four chunks before encoding the
+monthly WebM. Existing validated monthly videos are skipped by both stages, so
+the workflow is restartable.
 
 After the array completes, validate every month and write the public manifest:
 
@@ -100,14 +115,20 @@ For an unattended build, submit that finalization with `--dependency=afterok:<ar
 
 Each WebM frame stores colour in its left half and an opacity mask as right-half luma. The frontend reconstructs RGBA in a canvas. Vorticity and 500-hPa fields use one frame per ERA5 three-hourly analysis; precipitation and mean-sea-level pressure use one frame per hour.
 
-The impact-footprint array and its dependent validator are submitted with:
+Impact footprints use one contribution job per active source month, followed
+by a short yearly sum-and-pack stage:
 
 ```bash
-sbatch scripts/build_impact_footprints.slurm
-sbatch --dependency=afterok:<array-job-id> scripts/finalize_impact_footprints.slurm
+contribution_job=$(sbatch --parsable scripts/build_impact_contributions.slurm)
+assemble_job=$(sbatch --parsable --dependency=afterany:${contribution_job} \
+  scripts/assemble_impact_footprints.slurm)
+sbatch --dependency=afterany:${assemble_job} scripts/finalize_impact_footprints.slurm
 ```
 
-The finalizer reconciles yearly track IDs with WD v6, checks every packed-grid shape and checksum, and writes `impact-manifest.json` to the public archive.
+The finalizer reconciles yearly track IDs with WD v6, checks every packed-grid
+shape and checksum, and writes `impact-manifest.json` to the public archive.
+Completed yearly shards are skipped, and the staging manifest remains usable
+while incomplete years are being assembled.
 
 ## Rebuilding the catalogue assets
 
