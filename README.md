@@ -130,6 +130,12 @@ shape and checksum, and writes `impact-manifest.json` to the public archive.
 Completed yearly shards are skipped, and the staging manifest remains usable
 while incomplete years are being assembled.
 
+Exceptionally slow source months can be divided into four non-overlapping time
+windows. `repair_impact_1950_chunks.slurm` does this for January–July 1950 and
+`assemble_impact_1950_months.slurm` verifies checksums, grids and continuous
+time coverage before recreating the ordinary monthly contributions. The normal
+yearly assembler can then consume them without a special-case data format.
+
 ## Rebuilding the catalogue assets
 
 Build the WD-v6 browser assets from the validated Parquet catalogue with:
