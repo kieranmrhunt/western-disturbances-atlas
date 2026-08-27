@@ -10,6 +10,7 @@ FIELDS=(wind500 temperature500 humidity500 mslp)
 DEPENDENCY="${3:-}"
 
 cd "$ATLAS_ROOT"
+scripts/prepare_weather_runtime.sh
 for FIELD in "${FIELDS[@]}"; do
 	CHUNK_ARGS=(--parsable --time=04:00:00)
 	if [[ -n "$DEPENDENCY" ]]; then

@@ -22,8 +22,8 @@ if [[ "${WD_WEATHER_OVERWRITE:-0}" == "1" ]]; then
 	EXTRA_ARGS+=(--overwrite)
 fi
 
-export MPLCONFIGDIR="${TMPDIR:-/tmp}/wd-atlas-mpl-${SLURM_JOB_ID}"
-export XDG_CACHE_HOME="${TMPDIR:-/tmp}/wd-atlas-cache-${SLURM_JOB_ID}"
+export MPLCONFIGDIR="${WD_ATLAS_MPLCONFIGDIR:-${ATLAS_ROOT}/.weather-runtime/matplotlib}"
+export XDG_CACHE_HOME="${WD_ATLAS_XDG_CACHE_HOME:-${ATLAS_ROOT}/.weather-runtime/xdg-cache}"
 mkdir -p "$MPLCONFIGDIR" "$XDG_CACHE_HOME"
 
 cd "$ATLAS_ROOT"

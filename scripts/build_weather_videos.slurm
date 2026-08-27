@@ -18,8 +18,8 @@ MONTH_MANIFEST="${1:-${ATLAS_ROOT}/data/wd-weather-months.csv}"
 OUTPUT_DIR="${2:-/home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1}"
 FIELD="${3:-vorticity350}"
 
-export MPLCONFIGDIR="${TMPDIR:-/tmp}/wd-atlas-mpl-${SLURM_JOB_ID}"
-export XDG_CACHE_HOME="${TMPDIR:-/tmp}/wd-atlas-cache-${SLURM_JOB_ID}"
+export MPLCONFIGDIR="${WD_ATLAS_MPLCONFIGDIR:-${ATLAS_ROOT}/.weather-runtime/matplotlib}"
+export XDG_CACHE_HOME="${WD_ATLAS_XDG_CACHE_HOME:-${ATLAS_ROOT}/.weather-runtime/xdg-cache}"
 mkdir -p "$MPLCONFIGDIR" "$XDG_CACHE_HOME"
 
 cd "$ATLAS_ROOT"

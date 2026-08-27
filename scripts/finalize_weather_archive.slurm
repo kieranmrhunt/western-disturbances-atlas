@@ -17,6 +17,10 @@ MONTH_MANIFEST="${1:-${ATLAS_ROOT}/data/wd-weather-months.csv}"
 OUTPUT_DIR="${2:-/home/users/kieran/incompass/public/kieran/track_data/WD/atlas-weather-v5-r1}"
 FIELD="${3:-vorticity350}"
 
+export MPLCONFIGDIR="${WD_ATLAS_MPLCONFIGDIR:-${ATLAS_ROOT}/.weather-runtime/matplotlib}"
+export XDG_CACHE_HOME="${WD_ATLAS_XDG_CACHE_HOME:-${ATLAS_ROOT}/.weather-runtime/xdg-cache}"
+mkdir -p "$MPLCONFIGDIR" "$XDG_CACHE_HOME"
+
 cd "$ATLAS_ROOT"
 "$PYTHON" scripts/build_weather_videos.py \
 	--field "$FIELD" \
