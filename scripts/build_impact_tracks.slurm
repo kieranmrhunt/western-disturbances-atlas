@@ -6,7 +6,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=01:00:00
 #SBATCH --job-name=wd-impact-track
-#SBATCH --array=0-8148%2
+#SBATCH --array=0-8148
 #SBATCH --output=hpc-logs/wd-impact-track-%A_%a.out
 
 set -euo pipefail

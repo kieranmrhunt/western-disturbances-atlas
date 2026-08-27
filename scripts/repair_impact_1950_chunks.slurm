@@ -6,7 +6,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=00:45:00
 #SBATCH --job-name=wd-impact-1950-chunk
-#SBATCH --array=0-27%4
+#SBATCH --array=0-27
 #SBATCH --output=hpc-logs/wd-impact-1950-chunk-%A_%a.out
 
 set -euo pipefail

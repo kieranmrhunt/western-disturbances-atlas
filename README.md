@@ -100,8 +100,9 @@ Each chunk contains one quarter of a month as deterministic gzip-compressed
 RGB frames. The assembly array validates all four chunks before encoding the
 monthly WebM. Existing validated monthly videos are skipped by both stages, so
 the workflow is restartable. Run the four optional fields serially to avoid
-multiple arrays competing to read the same archive; the helper uses two chunk
-workers per field and a four-hour ceiling for unusually slow reads:
+multiple field arrays competing to read the same archive. Within each field,
+Slurm schedules all eligible chunks without an application-level concurrency
+throttle; the helper retains a four-hour ceiling for unusually slow reads:
 
 ```bash
 bash scripts/submit_weather_staging_serial.sh

@@ -6,7 +6,7 @@
 #SBATCH --mem=2G
 #SBATCH --time=00:20:00
 #SBATCH --job-name=wd-weather-assemble
-#SBATCH --array=0-911%8
+#SBATCH --array=0-911
 #SBATCH --output=hpc-logs/wd-weather-assemble-%A_%a.out
 
 set -euo pipefail

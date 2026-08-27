@@ -6,7 +6,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=02:00:00
 #SBATCH --job-name=wd-weather-chunk
-#SBATCH --array=0-3647%2
+#SBATCH --array=0-3647
 #SBATCH --output=hpc-logs/wd-weather-chunk-%A_%a.out
 
 set -euo pipefail

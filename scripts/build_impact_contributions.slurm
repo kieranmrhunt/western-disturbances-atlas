@@ -6,7 +6,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=01:15:00
 #SBATCH --job-name=wd-impact-month
-#SBATCH --array=0-987%8
+#SBATCH --array=0-987
 #SBATCH --output=hpc-logs/wd-impact-month-%A_%a.out
 
 set -euo pipefail
