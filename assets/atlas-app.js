@@ -117,6 +117,8 @@
 	let mapTimeMatches = [];
 	let lifeChartHit = null;
 	let lifeChartDragging = false;
+	let verticalChartHit = null;
+	let verticalChartDragging = false;
 	let evolutionMetrics = ["vorticity"];
 	let profileMetrics = ["vorticity", "rain"];
 	const diagnosticSummaryCache = new Map();
@@ -624,6 +626,12 @@
 		lifeCanvas.addEventListener("pointerup", (event) => { lifeChartDragging = false; if (lifeCanvas.hasPointerCapture(event.pointerId)) lifeCanvas.releasePointerCapture(event.pointerId); });
 		lifeCanvas.addEventListener("pointercancel", () => { lifeChartDragging = false; });
 		lifeCanvas.addEventListener("keydown", handleLifeChartKey);
+		const verticalCanvas = $("#wdVerticalChart");
+		verticalCanvas.addEventListener("pointerdown", (event) => { verticalChartDragging = true; verticalCanvas.setPointerCapture(event.pointerId); scrubVerticalChart(event); });
+		verticalCanvas.addEventListener("pointermove", (event) => { if (verticalChartDragging) scrubVerticalChart(event); });
+		verticalCanvas.addEventListener("pointerup", (event) => { verticalChartDragging = false; if (verticalCanvas.hasPointerCapture(event.pointerId)) verticalCanvas.releasePointerCapture(event.pointerId); });
+		verticalCanvas.addEventListener("pointercancel", () => { verticalChartDragging = false; });
+		verticalCanvas.addEventListener("keydown", handleLifeChartKey);
 		$("#wdTableSort").addEventListener("change", () => { tablePage = 0; renderTable(); });
 		$("#wdTablePrevious").addEventListener("click", () => { tablePage = Math.max(0, tablePage - 1); renderTable(); });
 		$("#wdTableNext").addEventListener("click", () => { tablePage += 1; renderTable(); });
@@ -673,12 +681,20 @@
 	}
 
 	function scrubLifeChart(event) {
-		if (selected < 0 || !lifeChartHit) return;
+		scrubTrackChart(event, lifeChartHit);
+	}
+
+	function scrubVerticalChart(event) {
+		scrubTrackChart(event, verticalChartHit);
+	}
+
+	function scrubTrackChart(event, hit) {
+		if (selected < 0 || !hit) return;
 		const rect = event.currentTarget.getBoundingClientRect();
-		const x = clamp(event.clientX - rect.left, lifeChartHit.left, lifeChartHit.right);
-		const fraction = (x - lifeChartHit.left) / Math.max(1, lifeChartHit.right - lifeChartHit.left);
-		const targetHours = fraction * lifeChartHit.maximumElapsed;
-		const points = lifeChartHit.points;
+		const x = clamp(event.clientX - rect.left, hit.left, hit.right);
+		const fraction = (x - hit.left) / Math.max(1, hit.right - hit.left);
+		const targetHours = fraction * hit.maximumElapsed;
+		const points = hit.points;
 		let nearest = 0;
 		for (let index = 1; index < points.length; index += 1) if (Math.abs(points[index].elapsedHours - targetHours) < Math.abs(points[nearest].elapsedHours - targetHours)) nearest = index;
 		setFocusFix(nearest);
@@ -1903,7 +1919,7 @@
 		relationships.hidden = false;
 		relationships.innerHTML = `<div class="wd-relationship-grid">
 			${spellMembers.length ? `<div class="mla-match-box"><h4>Other systems in this spell</h4><div class="mla-chip-row">${spellMembers.slice(0, 8).map((member) => `<button class="mla-chip" type="button" data-select-track="${member}">${trackName(member)}</button>`).join("")}</div></div>` : ""}
-			<div class="mla-match-box"><h4>Closest catalogue analogues</h4><div class="mla-chip-row">${analogues.map(([analogue, distance]) => `<button class="mla-chip" type="button" data-select-track="${analogue}" title="standardised analogue distance ${distance.toFixed(2)}">${trackName(analogue)}</button>`).join("")}</div></div>
+			<div class="mla-match-box"><h4>Closest catalogue analogues</h4><div class="mla-chip-row">${analogues.map(([analogue, distance]) => `<button class="mla-chip" type="button" data-select-track="${analogue}" title="track, intensity and impact analogue distance ${distance.toFixed(2)}">${trackName(analogue)}</button>`).join("")}</div></div>
 		</div>`;
 		$("#wdCloseDossier").addEventListener("click", clearSelection);
 		$("#wdFitSelected").addEventListener("click", () => fitSelectedTrack(index));
@@ -2118,6 +2134,7 @@
 		const chart = prepareCanvas($("#wdVerticalChart"));
 		if (!chart) return;
 		const { context, width, height } = chart;
+		verticalChartHit = null;
 		if (selected < 0) { drawEmptyChart(context, width, height, "Select a disturbance to inspect its track-centred vertical structure."); $("#wdVerticalReadout").textContent = ""; return; }
 		const definition = VERTICAL_METRICS[$("#wdVerticalMetric").value] || VERTICAL_METRICS.vorticity;
 		const unavailable = definition.keys.find((key) => !metricIsReady(key, drawVerticalChart));
@@ -2131,6 +2148,7 @@
 		if (diverging) { const magnitude = Math.max(Math.abs(low), Math.abs(high), Number.EPSILON); low = -magnitude; high = magnitude; }
 		const left = 56, right = 22, top = 28, bottom = height - 38, plotWidth = width - left - right, plotHeight = bottom - top;
 		const maximumElapsed = Math.max(1, points.at(-1).elapsedHours);
+		verticalChartHit = { left, right: left + plotWidth, maximumElapsed, points };
 		for (let level = 0; level < 3; level += 1) {
 			const y = top + (2 - level) / 3 * plotHeight;
 			for (let fix = 0; fix < points.length; fix += 1) {
@@ -2801,10 +2819,9 @@
 	}
 
 	function similarTracks(index, count) {
-		const candidates = filtered.length > count ? filtered : Array.from({ length: META.ntracks }, (_, candidate) => candidate);
 		const distances = [];
-		for (const candidate of candidates) {
-			if (candidate === index) continue;
+		for (let candidate = 0; candidate < META.ntracks; candidate += 1) {
+			if (candidate === index || CAT.year[candidate] === CAT.year[index]) continue;
 			let shapeDistance = 0;
 			for (let sample = 0; sample < 9; sample += 1) {
 				const lonA = trackShapeFeatures[index * 18 + sample * 2], latA = trackShapeFeatures[index * 18 + sample * 2 + 1];
@@ -2812,14 +2829,35 @@
 				const dx = (lonA - lonB) * Math.cos((latA + latB) * Math.PI / 360), dy = latA - latB;
 				shapeDistance += (dx * dx + dy * dy) / 100;
 			}
-			const monthDifference = Math.min(Math.abs(CAT.month[index] - CAT.month[candidate]), 12 - Math.abs(CAT.month[index] - CAT.month[candidate]));
 			const durationDifference = Math.log(Math.max(3, CAT.dur[index]) / Math.max(3, CAT.dur[candidate]));
-			let distance = shapeDistance / 9 + .35 * (monthDifference / 3) ** 2 + .35 * durationDifference ** 2 + .25 * ((CAT.pct_int[index] - CAT.pct_int[candidate]) / 40) ** 2;
-			if (Number.isFinite(CAT.pct_pr[index]) && Number.isFinite(CAT.pct_pr[candidate])) distance += .18 * ((CAT.pct_pr[index] - CAT.pct_pr[candidate]) / 40) ** 2;
+			const pathDifference = Math.log(Math.max(10, CAT.len_km[index]) / Math.max(10, CAT.len_km[candidate]));
+			let distance = shapeDistance / 9 + .45 * ((CAT.pct_int[index] - CAT.pct_int[candidate]) / 30) ** 2 + .16 * durationDifference ** 2 + .16 * pathDifference ** 2 + .28 * regionalImpactDistance(index, candidate);
+			if (Number.isFinite(CAT.pct_pr[index]) && Number.isFinite(CAT.pct_pr[candidate])) distance += .24 * ((CAT.pct_pr[index] - CAT.pct_pr[candidate]) / 35) ** 2;
 			distances.push([candidate, Math.sqrt(distance)]);
 		}
 		distances.sort((a, b) => a[1] - b[1] || CAT.id[a[0]] - CAT.id[b[0]]);
-		return distances.slice(0, count);
+		const analogues = [], years = new Set();
+		for (const match of distances) {
+			const year = CAT.year[match[0]];
+			if (years.has(year)) continue;
+			years.add(year); analogues.push(match);
+			if (analogues.length === count) break;
+		}
+		return analogues;
+	}
+
+	function regionalImpactDistance(first, second) {
+		let dot = 0, firstNorm = 0, secondNorm = 0;
+		for (const key of REGION_KEYS) {
+			const firstValue = Math.log1p(Math.max(0, CAT[key][first] || 0));
+			const secondValue = Math.log1p(Math.max(0, CAT[key][second] || 0));
+			dot += firstValue * secondValue;
+			firstNorm += firstValue * firstValue;
+			secondNorm += secondValue * secondValue;
+		}
+		if (firstNorm === 0 && secondNorm === 0) return 0;
+		if (firstNorm === 0 || secondNorm === 0) return 1;
+		return clamp(1 - dot / Math.sqrt(firstNorm * secondNorm), 0, 1);
 	}
 
 	function longitudeCrossing(index) {

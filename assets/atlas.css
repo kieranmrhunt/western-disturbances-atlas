@@ -375,7 +375,7 @@
 .mla-chart-head .mla-field { width: min(230px, 48%); }
 .mla-chart-readout { min-height: 22px; margin: 7px 2px 0 !important; color: var(--mla-ink) !important; font-variant-numeric: tabular-nums; }
 .mla-chart { display: block; width: 100%; height: 300px; border: 1px solid var(--mla-line); border-radius: 10px; background: var(--mla-card-strong); }
-#wdLifeChart { cursor: ew-resize; touch-action: pan-y; }
+#wdLifeChart, #wdVerticalChart { cursor: ew-resize; touch-action: pan-y; }
 .mla-evolution-card { align-self: start; }
 .wd-variable-picker { display: flex; gap: 6px; align-items: end; }
 .wd-variable-picker .mla-field { width: min(230px, 100%); }

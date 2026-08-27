@@ -63,6 +63,7 @@ def main() -> None:
     check('id="wdGenesisRegionChips"' in html, "Genesis-region controls are missing")
     check('id="wdLysisRegionChips"' in html and 'id="wdRouteChips"' in html, "Lysis or route controls are missing")
     check('id="wdJetPreset"' not in html and 'id="wdVerticalChart"' in html, "Jet preset remains or vertical diagnostics are missing")
+    check('id="wdVerticalChart" role="img" tabindex="0"' in html, "Vertical structure chart is not keyboard focusable")
     check('id="wdYearBasis"' not in html, "Year-definition selector remains")
     check('<details class="mla-filter-disclosure" open>' not in html, "A filter disclosure is open by default")
     check('id="wdCrossingLongitude" type="number" min="-20" max="145" step="1" value="60"' in html, "Crossing meridian does not default to 60°E")
@@ -156,6 +157,8 @@ def main() -> None:
     check(weather_months[1] == "195001" and weather_months[-1] == "202512", "Unexpected weather-manifest coverage")
 
     app = (ROOT / "assets" / "atlas-app.js").read_text(encoding="utf-8")
+    check("scrubVerticalChart" in app and "verticalChartHit" in app, "Vertical structure time scrubbing is missing")
+    check("regionalImpactDistance" in app and "CAT.year[candidate] === CAT.year[index]" in app, "Catalogue-wide, cross-year analogue matching is missing")
     check('bindDateInput("#wdDateMin", "dateMin")' in app and "Preserve that partial edit" in app, "Date inputs do not preserve partial keyboard edits")
     check("function loadDiagnostic(metric)" in app and "diagnosticArrays" in app, "Lazy evolution diagnostics are not wired")
     check("fixTimeMillis(index, fix)" in app, "Actual track-point times are not used by the application")
