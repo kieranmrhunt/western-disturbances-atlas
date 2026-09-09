@@ -1,518 +1,588 @@
 {
-  "schema": "western-disturbances-atlas-assets-v6",
+  "schema": "western-disturbances-atlas-assets-v7",
   "source": {
-    "fixes": "/gws/ssde/j25a/ncas_climate/vol1/users/kieran/work/tracking/era5-wd/catalogue-v6/full-r2/wd_v6-era5-1950-2025-fixes.parquet",
-    "fixes_sha256": "8b1ded367b4ec16aeee2af3c1fe21fb3a54d9ff95dd6fb99c26c94e9022602ef",
-    "summary": "/gws/ssde/j25a/ncas_climate/vol1/users/kieran/work/tracking/era5-wd/catalogue-v6/full-r2/wd_v6-era5-1950-2025-summary.parquet",
-    "summary_sha256": "4db84a5749165ec1a4d3aa80c21a0d5ebe5cadf7aa076099fbc6cb329a9f2956",
-    "schema": "/gws/ssde/j25a/ncas_climate/vol1/users/kieran/work/tracking/era5-wd/catalogue-v6/full-r2/wd_v6-era5-1950-2025-schema.json",
-    "schema_sha256": "180d37958e3f24a0197010e5ddf3bafe9a0a7e476a50ae9e68b9383bf8369005"
+    "track_points": {
+      "file": "wd_v7-era5-1950-2025-track-points.parquet",
+      "sha256": "19b3985ae53de7733e60893100ce6247cc5fa1d91c714cf7b27f79b14d2aee77"
+    },
+    "summary": {
+      "file": "wd_v7-era5-1950-2025-summary.parquet",
+      "sha256": "ecb4867b6dda1e0f1e6509ed1f03cd5a089db99ba9209414880320f08b8c4193"
+    },
+    "release_manifest": {
+      "file": "wd_v7-era5-1950-2025-manifest.json",
+      "sha256": "f84f57410f54205d98be850e726318233d5b349910ed288c3d5ee0fc68e5fd8c"
+    }
   },
   "counts": {
-    "tracks": 16298,
-    "fixes": 460411,
-    "diagnostics": 56
+    "tracks": 49200,
+    "track_points": 1493423,
+    "diagnostics": 70,
+    "core": 12944,
+    "quality": 44685
   },
   "assets": {
-    "catalogue": {
-      "file": "wd-atlas-catalogue-v6.json.gz",
-      "bytes": 736269,
-      "uncompressed_bytes": 2334783,
-      "sha256": "b2c93805bb6e5cd70065bfc4da151273b520e201329130f3b4f2523a70869502"
-    },
-    "fixes": {
-      "file": "wd-atlas-fixes-v6.i16.gz",
-      "bytes": 2396720,
-      "uncompressed_bytes": 3683288,
-      "sha256": "58f9099a020a732f6cf291011e9467c0d1ba2ffc28fe188b8af30d2de0bef000"
-    },
-    "times": {
-      "file": "wd-atlas-times-v6.i32.gz",
-      "bytes": 356110,
-      "uncompressed_bytes": 1841644,
-      "sha256": "4e5be54bd8f16deb5e169e20bb5b88b0d3b77a91fffa0f5aa3699a312de30b50"
-    },
-    "map_context": {
-      "file": "map-context.js",
-      "bytes": 14651,
-      "sha256": "7aace26f3251b3276c3a37b69c30d99519e633c50113e0b98b9d14b87a9d4b8c"
-    },
     "diagnostic:ut_vo_max_200km": {
-      "file": "wd-atlas-diag-v6-ut_vo_max_200km.f32.gz",
-      "field": "ut_vo_max_200km",
-      "bytes": 1610385,
-      "uncompressed_bytes": 1841644,
-      "sha256": "e4f88043492735753c9262fede8cf7f45942b00bf1a05928f7fe44fd641e1446"
+      "file": "wd-atlas-diag-v7-ut_vo_max_200km.f32.gz",
+      "bytes": 5246864,
+      "uncompressed_bytes": 5973692,
+      "sha256": "eba10e81bf2c1fa3e5dca9612e6d1149c6bfd8af6d5f54fb175fe4818d64595e",
+      "field": "ut_vo_max_200km"
     },
     "diagnostic:ut_vo": {
-      "file": "wd-atlas-diag-v6-ut_vo.f32.gz",
-      "field": "ut_vo_mean_400km",
-      "bytes": 1640810,
-      "uncompressed_bytes": 1841644,
-      "sha256": "83d356d394d7e0f53e4f22473f413e41e2dddfe59f20072d9c03e8f662ca37a0"
-    },
-    "diagnostic:ut_vo_350hpa_max_200km": {
-      "file": "wd-atlas-diag-v6-ut_vo_350hpa_max_200km.f32.gz",
-      "field": "ut_vo_350hpa_max_200km",
-      "bytes": 1606152,
-      "uncompressed_bytes": 1841644,
-      "sha256": "b2a79bb215bb1d1831c96cf5e83a2301bed716e9ef6800407c5fe195ff18d853"
-    },
-    "diagnostic:ut_vo_350hpa": {
-      "file": "wd-atlas-diag-v6-ut_vo_350hpa.f32.gz",
-      "field": "ut_vo_350hpa_mean_400km",
-      "bytes": 1640594,
-      "uncompressed_bytes": 1841644,
-      "sha256": "a5927b6e0dc4afac81a1eb6807e9007554c467f903d63e2b2d4e1db1a3d45f85"
-    },
-    "diagnostic:precip_1hr": {
-      "file": "wd-atlas-diag-v6-precip_1hr.f32.gz",
-      "field": "precip_1hr_400km",
-      "bytes": 925930,
-      "uncompressed_bytes": 1841644,
-      "sha256": "7c098d2fb12bedb637f78890ee9b605790f9511d39b9287ad10fcd9c86742722"
-    },
-    "diagnostic:precip_1hr_800km": {
-      "file": "wd-atlas-diag-v6-precip_1hr_800km.f32.gz",
-      "field": "precip_1hr_800km",
-      "bytes": 984154,
-      "uncompressed_bytes": 1841644,
-      "sha256": "d89b94f59b1a5c5db8479e1fd45d28ade250e8c90f1a81178b2b82110960e887"
-    },
-    "diagnostic:precip_24hr_800km": {
-      "file": "wd-atlas-diag-v6-precip_24hr_800km.f32.gz",
-      "field": "precip_24hr_800km",
-      "bytes": 985967,
-      "uncompressed_bytes": 1841644,
-      "sha256": "1aebaa16fa63c71c9c0c8810a65b888820f64632c643cbc1d96f74ce04576f0c"
+      "file": "wd-atlas-diag-v7-ut_vo.f32.gz",
+      "bytes": 5372109,
+      "uncompressed_bytes": 5973692,
+      "sha256": "11397afad8871596c9ee3ce1d6214fc787dfa40019f10953dedd9fefcafb3660",
+      "field": "ut_vo_mean_400km"
     },
     "diagnostic:mslp_min": {
-      "file": "wd-atlas-diag-v6-mslp_min.f32.gz",
-      "field": "mslp_min_400km",
-      "bytes": 823648,
-      "uncompressed_bytes": 1841644,
-      "sha256": "232b8bc2988bb6fc7085cb917a35adf561e5572a8dda945bec741a958e0e2d93"
+      "file": "wd-atlas-diag-v7-mslp_min.f32.gz",
+      "bytes": 2732217,
+      "uncompressed_bytes": 5973692,
+      "sha256": "dc3d28acec397c8cf983c796ba02b46d738f0cbdf997496df617b74af84e20ae",
+      "field": "mslp_min_400km"
     },
     "diagnostic:ws10_max": {
-      "file": "wd-atlas-diag-v6-ws10_max.f32.gz",
-      "field": "ws10_max_400km",
-      "bytes": 947822,
-      "uncompressed_bytes": 1841644,
-      "sha256": "521996b715cb7aae9e2ac16ab3446e18a9cffdfb1bd8462eecb1bb67e829b314"
+      "file": "wd-atlas-diag-v7-ws10_max.f32.gz",
+      "bytes": 3181832,
+      "uncompressed_bytes": 5973692,
+      "sha256": "065284e68931d39b2519e390182259c5394254f41f39d16507e1b59ef560db32",
+      "field": "ws10_max_400km"
     },
     "diagnostic:ws10": {
-      "file": "wd-atlas-diag-v6-ws10.f32.gz",
-      "field": "ws10_mean_400km",
-      "bytes": 948363,
-      "uncompressed_bytes": 1841644,
-      "sha256": "7618bc1a9f0179e8b081067d3a37ef6059cbf50cdbfefe695ce7660fb16241d6"
+      "file": "wd-atlas-diag-v7-ws10.f32.gz",
+      "bytes": 3190145,
+      "uncompressed_bytes": 5973692,
+      "sha256": "ea2678a68cd4035d6238088e6f1aa11c08a5e65d7f9d09c2a275d3d02a52adaf",
+      "field": "ws10_mean_400km"
     },
-    "diagnostic:vo_850": {
-      "file": "wd-atlas-diag-v6-vo_850.f32.gz",
-      "field": "vo_mean_850_400km",
-      "bytes": 995831,
-      "uncompressed_bytes": 1841644,
-      "sha256": "2f9c10e256b5016ac00fb571fe162ae8fb32bac77603db2ebaff5be7c4147f43"
+    "diagnostic:precip_1hr": {
+      "file": "wd-atlas-diag-v7-precip_1hr.f32.gz",
+      "bytes": 3112604,
+      "uncompressed_bytes": 5973692,
+      "sha256": "d609aad43f953dafebb0d6eedc9aac1568e703f0e9c9f198b9fd8f2220b4fe04",
+      "field": "precip_1hr_400km"
     },
-    "diagnostic:vo_700": {
-      "file": "wd-atlas-diag-v6-vo_700.f32.gz",
-      "field": "vo_mean_700_400km",
-      "bytes": 986858,
-      "uncompressed_bytes": 1841644,
-      "sha256": "e3b0f5f0e8f8846246ea6a10b8ab1fc9dddce425a2d224cf2bb36772a541c9a4"
+    "diagnostic:precip_1hr_800km": {
+      "file": "wd-atlas-diag-v7-precip_1hr_800km.f32.gz",
+      "bytes": 2977904,
+      "uncompressed_bytes": 5973692,
+      "sha256": "b260734c620c22b1e14fe18c73e1e78b4994b25b05796d1f66dc717df5bec05a",
+      "field": "precip_1hr_800km"
     },
-    "diagnostic:vo_500": {
-      "file": "wd-atlas-diag-v6-vo_500.f32.gz",
-      "field": "vo_mean_500_400km",
-      "bytes": 962950,
-      "uncompressed_bytes": 1841644,
-      "sha256": "2a107f48d865e3017114c8d3d5e11f7cdfd50335dbba53248fd5bf195dd972bc"
+    "diagnostic:precip_24hr_800km": {
+      "file": "wd-atlas-diag-v7-precip_24hr_800km.f32.gz",
+      "bytes": 2985524,
+      "uncompressed_bytes": 5973692,
+      "sha256": "635d14ad304b7503f77bd6408b879eb3925b0962368831f1894dee92f685aa87",
+      "field": "precip_24hr_800km"
     },
-    "diagnostic:precip_box_1hr_karakoram": {
-      "file": "wd-atlas-diag-v6-precip_box_1hr_karakoram.f32.gz",
-      "field": "precip_box_1hr_karakoram",
-      "bytes": 793130,
-      "uncompressed_bytes": 1841644,
-      "sha256": "57247ef42345a2bce6a872e230d934c9a7a617ce8b972585b1051958dc66cba2"
+    "diagnostic:regional_coverage": {
+      "file": "wd-atlas-diag-v7-regional_coverage.f32.gz",
+      "bytes": 2533885,
+      "uncompressed_bytes": 5973692,
+      "sha256": "57f281a742086ef1fd6760fd3b028a9cc3bb2c030c63371f903c348e6c0a28f5",
+      "field": "regional_400km_coverage"
     },
-    "diagnostic:precip_box_24hr_karakoram": {
-      "file": "wd-atlas-diag-v6-precip_box_24hr_karakoram.f32.gz",
-      "field": "precip_box_24hr_karakoram",
-      "bytes": 814443,
-      "uncompressed_bytes": 1841644,
-      "sha256": "f7bb63395f8fc242215b99b47645d3f675d96f90ebcb75a5edb44616511ee5fe"
+    "diagnostic:precipitation_800km_coverage": {
+      "file": "wd-atlas-diag-v7-precipitation_800km_coverage.f32.gz",
+      "bytes": 3394392,
+      "uncompressed_bytes": 5973692,
+      "sha256": "6d7ed3ba7eb239f53c62574709d28ff2ccab9a8c3dc17fface2775eb281e0361",
+      "field": "precipitation_800km_coverage"
     },
-    "diagnostic:precip_box_1hr_hindu_kush": {
-      "file": "wd-atlas-diag-v6-precip_box_1hr_hindu_kush.f32.gz",
-      "field": "precip_box_1hr_hindu_kush",
-      "bytes": 778503,
-      "uncompressed_bytes": 1841644,
-      "sha256": "a3b9a750ee61a18a05ef04ef33af4e5a5d842729c664e5054b14e8455f588def"
+    "diagnostic:vo_450hpa_max_200km": {
+      "file": "wd-atlas-diag-v7-vo_450hpa_max_200km.f32.gz",
+      "bytes": 5134473,
+      "uncompressed_bytes": 5973692,
+      "sha256": "83d311bb2b1f9712d35ccd8fe98d7616605a1c47fbe6295d26f6ba63938c7183",
+      "field": "vo_450hpa_max_200km"
     },
-    "diagnostic:precip_box_24hr_hindu_kush": {
-      "file": "wd-atlas-diag-v6-precip_box_24hr_hindu_kush.f32.gz",
-      "field": "precip_box_24hr_hindu_kush",
-      "bytes": 807871,
-      "uncompressed_bytes": 1841644,
-      "sha256": "3db42725ed94b92101077422cd0594e12fa8575fb2281d53a262e1f86c362215"
+    "diagnostic:vo_450hpa": {
+      "file": "wd-atlas-diag-v7-vo_450hpa.f32.gz",
+      "bytes": 5394341,
+      "uncompressed_bytes": 5973692,
+      "sha256": "46210936f64bee831aa714d4da101c23524b90d6f821fe1dc459904879e3ce83",
+      "field": "vo_450hpa_mean_400km"
     },
-    "diagnostic:precip_box_1hr_western_himalaya": {
-      "file": "wd-atlas-diag-v6-precip_box_1hr_western_himalaya.f32.gz",
-      "field": "precip_box_1hr_western_himalaya",
-      "bytes": 800863,
-      "uncompressed_bytes": 1841644,
-      "sha256": "0b54d4f0b361c1a4ba61d4776556bd08947c17713d9ac3c13f329d81a99ea373"
+    "diagnostic:vo_400hpa_max_200km": {
+      "file": "wd-atlas-diag-v7-vo_400hpa_max_200km.f32.gz",
+      "bytes": 5139697,
+      "uncompressed_bytes": 5973692,
+      "sha256": "8e9f6a5152885fe5db21f367ff2d97a915be961eac24dbe564830e15517544e8",
+      "field": "vo_400hpa_max_200km"
     },
-    "diagnostic:precip_box_24hr_western_himalaya": {
-      "file": "wd-atlas-diag-v6-precip_box_24hr_western_himalaya.f32.gz",
-      "field": "precip_box_24hr_western_himalaya",
-      "bytes": 818290,
-      "uncompressed_bytes": 1841644,
-      "sha256": "be75f032618ae7fb7069692332170932284c04696eaeee74df775dbf757428e2"
+    "diagnostic:vo_400hpa": {
+      "file": "wd-atlas-diag-v7-vo_400hpa.f32.gz",
+      "bytes": 5376288,
+      "uncompressed_bytes": 5973692,
+      "sha256": "32d31fc901adf52c3b4cc39fa246f3d746f2c2f19a31f5190adc03776c3fc76e",
+      "field": "vo_400hpa_mean_400km"
     },
-    "diagnostic:precip_box_1hr_central_himalaya": {
-      "file": "wd-atlas-diag-v6-precip_box_1hr_central_himalaya.f32.gz",
-      "field": "precip_box_1hr_central_himalaya",
-      "bytes": 817132,
-      "uncompressed_bytes": 1841644,
-      "sha256": "41e06d703a0a780df6fdb0c6be5b19c8d7b166599a674918a7b441c5460418b9"
+    "diagnostic:vo_350hpa_max_200km": {
+      "file": "wd-atlas-diag-v7-vo_350hpa_max_200km.f32.gz",
+      "bytes": 5134506,
+      "uncompressed_bytes": 5973692,
+      "sha256": "c66b56809f5ab553838db11c8abfc0d1e235ce00200bdedb8e063adc4305aad4",
+      "field": "vo_350hpa_max_200km"
     },
-    "diagnostic:precip_box_24hr_central_himalaya": {
-      "file": "wd-atlas-diag-v6-precip_box_24hr_central_himalaya.f32.gz",
-      "field": "precip_box_24hr_central_himalaya",
-      "bytes": 816137,
-      "uncompressed_bytes": 1841644,
-      "sha256": "4dfd47aa52f128d1240d44cab9e3cb1c6f1a55107f4f0bcd65c3003c9a825bb7"
+    "diagnostic:vo_350hpa": {
+      "file": "wd-atlas-diag-v7-vo_350hpa.f32.gz",
+      "bytes": 5372334,
+      "uncompressed_bytes": 5973692,
+      "sha256": "5deac156ea2d1ca7acb5d787af248dc4353bcdfc6a8f9ce139344d7be6edc088",
+      "field": "vo_350hpa_mean_400km"
     },
-    "diagnostic:precip_box_1hr_north_india": {
-      "file": "wd-atlas-diag-v6-precip_box_1hr_north_india.f32.gz",
-      "field": "precip_box_1hr_north_india",
-      "bytes": 821659,
-      "uncompressed_bytes": 1841644,
-      "sha256": "a753a290423ba91ac6840dfe974df7a4118bf5aa76113a8a241d70d1ea3f1742"
+    "diagnostic:vo_300hpa_max_200km": {
+      "file": "wd-atlas-diag-v7-vo_300hpa_max_200km.f32.gz",
+      "bytes": 5095306,
+      "uncompressed_bytes": 5973692,
+      "sha256": "5a8cffd34262ba8b156dbf5a306d303727be5dd58ee809a1d3c4525ae71b26c8",
+      "field": "vo_300hpa_max_200km"
     },
-    "diagnostic:precip_box_24hr_north_india": {
-      "file": "wd-atlas-diag-v6-precip_box_24hr_north_india.f32.gz",
-      "field": "precip_box_24hr_north_india",
-      "bytes": 819265,
-      "uncompressed_bytes": 1841644,
-      "sha256": "1f5d1c745db25e302c911d0edaa007c56048ea42f7be52a489231ae3b053ef41"
+    "diagnostic:vo_300hpa": {
+      "file": "wd-atlas-diag-v7-vo_300hpa.f32.gz",
+      "bytes": 5384125,
+      "uncompressed_bytes": 5973692,
+      "sha256": "a7c50fce35b7690d5609100ba0e7d4161cb87c59e98972789ea26597e1e198a9",
+      "field": "vo_300hpa_mean_400km"
     },
     "diagnostic:u_wind_850hpa": {
-      "file": "wd-atlas-diag-v6-u_wind_850hpa.f32.gz",
-      "field": "u_wind_850hpa_400km_mean_m_s",
-      "bytes": 995381,
-      "uncompressed_bytes": 1841644,
-      "sha256": "356fa781b64552811975288e3deeb4be602dc15b936e955e92d04dbb806f163d"
+      "file": "wd-atlas-diag-v7-u_wind_850hpa.f32.gz",
+      "bytes": 3343042,
+      "uncompressed_bytes": 5973692,
+      "sha256": "6c2ade218b0fe268ceb0d178db7be6542845a24690a16a59ee945d5a51807106",
+      "field": "u_wind_850hpa_400km_mean_m_s"
     },
     "diagnostic:v_wind_850hpa": {
-      "file": "wd-atlas-diag-v6-v_wind_850hpa.f32.gz",
-      "field": "v_wind_850hpa_400km_mean_m_s",
-      "bytes": 997549,
-      "uncompressed_bytes": 1841644,
-      "sha256": "01ceafffba3cdfd3dd6b282162e6d62dfbf14288d6578b2cdc527a3a9e527e43"
+      "file": "wd-atlas-diag-v7-v_wind_850hpa.f32.gz",
+      "bytes": 3353204,
+      "uncompressed_bytes": 5973692,
+      "sha256": "96936b34b5982e44ebfe7b8ddd91fbbcfa814a9870fba1bedc16b9c26b6601be",
+      "field": "v_wind_850hpa_400km_mean_m_s"
     },
     "diagnostic:wind_speed_850hpa": {
-      "file": "wd-atlas-diag-v6-wind_speed_850hpa.f32.gz",
-      "field": "wind_speed_850hpa_400km_mean_m_s",
-      "bytes": 948882,
-      "uncompressed_bytes": 1841644,
-      "sha256": "7e5104fd80ce036df5c8a0dd91fe58e5e777ee9c7b18e2012a9ad6c6e554fd35"
-    },
-    "diagnostic:wind_speed_850hpa_max": {
-      "file": "wd-atlas-diag-v6-wind_speed_850hpa_max.f32.gz",
-      "field": "wind_speed_850hpa_400km_max_m_s",
-      "bytes": 942997,
-      "uncompressed_bytes": 1841644,
-      "sha256": "b23904b9f16a83de44ccd8dc7c47837f6fbfe4833276100dba9073271886f873"
+      "file": "wd-atlas-diag-v7-wind_speed_850hpa.f32.gz",
+      "bytes": 3194867,
+      "uncompressed_bytes": 5973692,
+      "sha256": "9366880c5a583cea0c9aff1174f827613850c9d9ba1190fff75e08012376cf74",
+      "field": "wind_speed_850hpa_400km_mean_m_s"
     },
     "diagnostic:temperature_850hpa_k": {
-      "file": "wd-atlas-diag-v6-temperature_850hpa_k.f32.gz",
-      "field": "temperature_850hpa_400km_mean_k",
-      "bytes": 858075,
-      "uncompressed_bytes": 1841644,
-      "sha256": "4f05ea08b85af62d0d9cc9baba747853b6913477fc58763f257fd6d46e19736e"
+      "file": "wd-atlas-diag-v7-temperature_850hpa_k.f32.gz",
+      "bytes": 2854931,
+      "uncompressed_bytes": 5973692,
+      "sha256": "e17f95708c0d0b1a9d62027d439198ed969bb7594032fd6dcc55754fd0b1e862",
+      "field": "temperature_850hpa_400km_mean_k"
     },
     "diagnostic:specific_humidity_850hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-specific_humidity_850hpa_g_kg.f32.gz",
-      "field": "specific_humidity_850hpa_400km_mean_g_kg",
-      "bytes": 948095,
-      "uncompressed_bytes": 1841644,
-      "sha256": "31759d982dfa647990e1a731096c585a34e617c3898a1c277a2337ee8af1e110"
+      "file": "wd-atlas-diag-v7-specific_humidity_850hpa_g_kg.f32.gz",
+      "bytes": 3191286,
+      "uncompressed_bytes": 5973692,
+      "sha256": "c4053dc718bc7e760d8be7e0502e79dc972a7e660091126d8b2ba6fb5438f62f",
+      "field": "specific_humidity_850hpa_400km_mean_g_kg"
     },
     "diagnostic:relative_humidity_850hpa_pct": {
-      "file": "wd-atlas-diag-v6-relative_humidity_850hpa_pct.f32.gz",
-      "field": "relative_humidity_850hpa_400km_mean_pct",
-      "bytes": 945377,
-      "uncompressed_bytes": 1841644,
-      "sha256": "39b09583533ddfb1375e73d2ee182f5a3d7ed4bfcdcf2c12f6df4594ac2c816b"
+      "file": "wd-atlas-diag-v7-relative_humidity_850hpa_pct.f32.gz",
+      "bytes": 3177125,
+      "uncompressed_bytes": 5973692,
+      "sha256": "c2d1947daed939533737cbb4ee8fffcc8fbc8213bd71749b99d4dc7e97164eca",
+      "field": "relative_humidity_850hpa_400km_mean_pct"
     },
     "diagnostic:zonal_moisture_flux_850hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-zonal_moisture_flux_850hpa_g_kg.f32.gz",
-      "field": "zonal_moisture_flux_850hpa_400km_mean_g_kg_m_s",
-      "bytes": 999118,
-      "uncompressed_bytes": 1841644,
-      "sha256": "5ddf0a10b7372ac3b4ac819f713e426205d943c3eb0e396a2162ce19366ef05c"
+      "file": "wd-atlas-diag-v7-zonal_moisture_flux_850hpa_g_kg.f32.gz",
+      "bytes": 3362248,
+      "uncompressed_bytes": 5973692,
+      "sha256": "9c30704f7db757e40efeb9b92a0d54bb0990f3e388cfe460d511bab5c675eac0",
+      "field": "zonal_moisture_flux_850hpa_400km_mean_g_kg_m_s"
     },
     "diagnostic:meridional_moisture_flux_850hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-meridional_moisture_flux_850hpa_g_kg.f32.gz",
-      "field": "meridional_moisture_flux_850hpa_400km_mean_g_kg_m_s",
-      "bytes": 1001905,
-      "uncompressed_bytes": 1841644,
-      "sha256": "2d64826afc7f0029426159b5e024608990bbaa2dd56f0549ff584721c24f471c"
+      "file": "wd-atlas-diag-v7-meridional_moisture_flux_850hpa_g_kg.f32.gz",
+      "bytes": 3371744,
+      "uncompressed_bytes": 5973692,
+      "sha256": "e30c163d79359ad32c087211fd01c5092da44022ce2351465a73da015374590b",
+      "field": "meridional_moisture_flux_850hpa_400km_mean_g_kg_m_s"
+    },
+    "diagnostic:wind_speed_850hpa_max": {
+      "file": "wd-atlas-diag-v7-wind_speed_850hpa_max.f32.gz",
+      "bytes": 3167238,
+      "uncompressed_bytes": 5973692,
+      "sha256": "26c4691d7236836fe9aab6ee59fa1bb7d93d96a273319c0d34e9dc5c3f5f2575",
+      "field": "wind_speed_850hpa_400km_max_m_s"
     },
     "diagnostic:moisture_flux_magnitude_850hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-moisture_flux_magnitude_850hpa_g_kg.f32.gz",
-      "field": "moisture_flux_magnitude_850hpa_400km_mean_g_kg_m_s",
-      "bytes": 969134,
-      "uncompressed_bytes": 1841644,
-      "sha256": "52d7194ada09f68d4d1efc09f6aee98aff0ec8d16ad5644d3ee494bbf61af28b"
+      "file": "wd-atlas-diag-v7-moisture_flux_magnitude_850hpa_g_kg.f32.gz",
+      "bytes": 3267702,
+      "uncompressed_bytes": 5973692,
+      "sha256": "d00a83e2b6193307e326681702ce2ac73fd0676991dfa9d6a342ce51912e461f",
+      "field": "moisture_flux_magnitude_850hpa_400km_mean_g_kg_m_s"
+    },
+    "diagnostic:vo_850": {
+      "file": "wd-atlas-diag-v7-vo_850.f32.gz",
+      "bytes": 3346545,
+      "uncompressed_bytes": 5973692,
+      "sha256": "cf065a21c57e10c0dbb90a3f2ba7aed9834f57c04f062907c0b3e53772ccc42d",
+      "field": "vo_mean_850_400km"
     },
     "diagnostic:u_wind_700hpa": {
-      "file": "wd-atlas-diag-v6-u_wind_700hpa.f32.gz",
-      "field": "u_wind_700hpa_400km_mean_m_s",
-      "bytes": 981100,
-      "uncompressed_bytes": 1841644,
-      "sha256": "d29a6214a9ee297e57d8f65e8e0e7c199a827b42261ee440f1196ff1dd38125d"
+      "file": "wd-atlas-diag-v7-u_wind_700hpa.f32.gz",
+      "bytes": 3293617,
+      "uncompressed_bytes": 5973692,
+      "sha256": "d2528dcaeecae0bf4a0d58a69d2326c2cf4ab59011c9765829f9f28769eb4ff4",
+      "field": "u_wind_700hpa_400km_mean_m_s"
     },
     "diagnostic:v_wind_700hpa": {
-      "file": "wd-atlas-diag-v6-v_wind_700hpa.f32.gz",
-      "field": "v_wind_700hpa_400km_mean_m_s",
-      "bytes": 996348,
-      "uncompressed_bytes": 1841644,
-      "sha256": "cd8c18927f82d93ffd47e3d0e4a19e2b9fd3d4912aee41b62652526197d5695a"
+      "file": "wd-atlas-diag-v7-v_wind_700hpa.f32.gz",
+      "bytes": 3343831,
+      "uncompressed_bytes": 5973692,
+      "sha256": "284f2b84d7a08dfa882421bca9a97e5c8b59e845dc7188a218f7c4b7cff48cdc",
+      "field": "v_wind_700hpa_400km_mean_m_s"
     },
     "diagnostic:wind_speed_700hpa": {
-      "file": "wd-atlas-diag-v6-wind_speed_700hpa.f32.gz",
-      "field": "wind_speed_700hpa_400km_mean_m_s",
-      "bytes": 951030,
-      "uncompressed_bytes": 1841644,
-      "sha256": "02578ec76931c4a47ed2a5db93819f49e480311bf5068e3238de5ebfed649459"
-    },
-    "diagnostic:wind_speed_700hpa_max": {
-      "file": "wd-atlas-diag-v6-wind_speed_700hpa_max.f32.gz",
-      "field": "wind_speed_700hpa_400km_max_m_s",
-      "bytes": 933523,
-      "uncompressed_bytes": 1841644,
-      "sha256": "83546ffae7fbf8f84f428306e7c7977dbbe7bb0b8bf46c4436138b63e65232da"
+      "file": "wd-atlas-diag-v7-wind_speed_700hpa.f32.gz",
+      "bytes": 3195326,
+      "uncompressed_bytes": 5973692,
+      "sha256": "cdaf0c110082b5f3fae3a4780302fcadfa629e8430f4b2dcce67734b32a553cd",
+      "field": "wind_speed_700hpa_400km_mean_m_s"
     },
     "diagnostic:temperature_700hpa_k": {
-      "file": "wd-atlas-diag-v6-temperature_700hpa_k.f32.gz",
-      "field": "temperature_700hpa_400km_mean_k",
-      "bytes": 851566,
-      "uncompressed_bytes": 1841644,
-      "sha256": "61b934f0a56428f627eb44157d23a2eacc0a8e2d06e5612c177aef77dd5d3733"
+      "file": "wd-atlas-diag-v7-temperature_700hpa_k.f32.gz",
+      "bytes": 2832054,
+      "uncompressed_bytes": 5973692,
+      "sha256": "1d758eade562a6a7669ae912ad041eb2f5d3da3544ee1b2c0315e321d1f349f3",
+      "field": "temperature_700hpa_400km_mean_k"
     },
     "diagnostic:specific_humidity_700hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-specific_humidity_700hpa_g_kg.f32.gz",
-      "field": "specific_humidity_700hpa_400km_mean_g_kg",
-      "bytes": 952118,
-      "uncompressed_bytes": 1841644,
-      "sha256": "ea39ed35f8c260a2f83efaaf622ee242ae7d8f3d7b7881f609d4dd42d955d80a"
+      "file": "wd-atlas-diag-v7-specific_humidity_700hpa_g_kg.f32.gz",
+      "bytes": 3198051,
+      "uncompressed_bytes": 5973692,
+      "sha256": "e2b616deb11169d59ca626a6a84563c19c97be83eb472f0a583d63f92645c461",
+      "field": "specific_humidity_700hpa_400km_mean_g_kg"
     },
     "diagnostic:relative_humidity_700hpa_pct": {
-      "file": "wd-atlas-diag-v6-relative_humidity_700hpa_pct.f32.gz",
-      "field": "relative_humidity_700hpa_400km_mean_pct",
-      "bytes": 942514,
-      "uncompressed_bytes": 1841644,
-      "sha256": "b88b7184b03a732e5ef022b6fe43341665b597895ee3fc22c06906cbc9ee59ac"
+      "file": "wd-atlas-diag-v7-relative_humidity_700hpa_pct.f32.gz",
+      "bytes": 3172159,
+      "uncompressed_bytes": 5973692,
+      "sha256": "e2ee15fbfcedc3e813a973478ac93e4cf26e93aa53da2ae125c9f3331da3bd2f",
+      "field": "relative_humidity_700hpa_400km_mean_pct"
     },
     "diagnostic:zonal_moisture_flux_700hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-zonal_moisture_flux_700hpa_g_kg.f32.gz",
-      "field": "zonal_moisture_flux_700hpa_400km_mean_g_kg_m_s",
-      "bytes": 985592,
-      "uncompressed_bytes": 1841644,
-      "sha256": "d2eb848dfe714fc0f193f763768fe296ca83d37857d78bf485e380e4b9ae74d6"
+      "file": "wd-atlas-diag-v7-zonal_moisture_flux_700hpa_g_kg.f32.gz",
+      "bytes": 3315529,
+      "uncompressed_bytes": 5973692,
+      "sha256": "12c2a46732f9b0351e1fb1bf7f00462701551d72567668d1951e737b89ee7d5c",
+      "field": "zonal_moisture_flux_700hpa_400km_mean_g_kg_m_s"
     },
     "diagnostic:meridional_moisture_flux_700hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-meridional_moisture_flux_700hpa_g_kg.f32.gz",
-      "field": "meridional_moisture_flux_700hpa_400km_mean_g_kg_m_s",
-      "bytes": 1002162,
-      "uncompressed_bytes": 1841644,
-      "sha256": "0d67ebcd44daa4f9d986bc0ea65872de9b2911e36cbeee814bd81f914f804094"
+      "file": "wd-atlas-diag-v7-meridional_moisture_flux_700hpa_g_kg.f32.gz",
+      "bytes": 3364371,
+      "uncompressed_bytes": 5973692,
+      "sha256": "0516f1506519e3e5a99b3c8a70acd86318a6f7821727030b7e415da286e7567c",
+      "field": "meridional_moisture_flux_700hpa_400km_mean_g_kg_m_s"
+    },
+    "diagnostic:wind_speed_700hpa_max": {
+      "file": "wd-atlas-diag-v7-wind_speed_700hpa_max.f32.gz",
+      "bytes": 3134842,
+      "uncompressed_bytes": 5973692,
+      "sha256": "4a72fe43685e0fe46aaecad8d6c13bdf54a6591632e9878b8c91f2804e475c6b",
+      "field": "wind_speed_700hpa_400km_max_m_s"
     },
     "diagnostic:moisture_flux_magnitude_700hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-moisture_flux_magnitude_700hpa_g_kg.f32.gz",
-      "field": "moisture_flux_magnitude_700hpa_400km_mean_g_kg_m_s",
-      "bytes": 967089,
-      "uncompressed_bytes": 1841644,
-      "sha256": "0744698f1b311856bd6b6bd0ba827acd9622df55e7ea070a1b1e3cd640d95d05"
+      "file": "wd-atlas-diag-v7-moisture_flux_magnitude_700hpa_g_kg.f32.gz",
+      "bytes": 3250921,
+      "uncompressed_bytes": 5973692,
+      "sha256": "07ba0a939e6dcd36ec44a214c33b592fc7c79104c62b07ec4cf01bb9d6e49f4e",
+      "field": "moisture_flux_magnitude_700hpa_400km_mean_g_kg_m_s"
+    },
+    "diagnostic:vo_700": {
+      "file": "wd-atlas-diag-v7-vo_700.f32.gz",
+      "bytes": 3325917,
+      "uncompressed_bytes": 5973692,
+      "sha256": "99b7acf2c8dffe9ec7b5f870a4697563e98c8c6a24cd56b87202e04bd7ca58e7",
+      "field": "vo_mean_700_400km"
     },
     "diagnostic:u_wind_500hpa": {
-      "file": "wd-atlas-diag-v6-u_wind_500hpa.f32.gz",
-      "field": "u_wind_500hpa_400km_mean_m_s",
-      "bytes": 961907,
-      "uncompressed_bytes": 1841644,
-      "sha256": "d68edcbe8aedcc3681f69d5ee65bc22caaa61cfd98a36ea29278a0c5e23013e0"
+      "file": "wd-atlas-diag-v7-u_wind_500hpa.f32.gz",
+      "bytes": 3235530,
+      "uncompressed_bytes": 5973692,
+      "sha256": "13ceff7052afe230ced71e80baa5b48d39a1687a605214ffcf5e165d8fec34f2",
+      "field": "u_wind_500hpa_400km_mean_m_s"
     },
     "diagnostic:v_wind_500hpa": {
-      "file": "wd-atlas-diag-v6-v_wind_500hpa.f32.gz",
-      "field": "v_wind_500hpa_400km_mean_m_s",
-      "bytes": 994170,
-      "uncompressed_bytes": 1841644,
-      "sha256": "67c414ba69687d7c9a540db251c18fc8413c21533a8e9d266873e45906a00869"
+      "file": "wd-atlas-diag-v7-v_wind_500hpa.f32.gz",
+      "bytes": 3332482,
+      "uncompressed_bytes": 5973692,
+      "sha256": "69da66851a19d49f24ef4182135ed44cbe32cd16dd67166be5c8dacb7ecbbf5c",
+      "field": "v_wind_500hpa_400km_mean_m_s"
     },
     "diagnostic:wind_speed_500hpa": {
-      "file": "wd-atlas-diag-v6-wind_speed_500hpa.f32.gz",
-      "field": "wind_speed_500hpa_400km_mean_m_s",
-      "bytes": 942806,
-      "uncompressed_bytes": 1841644,
-      "sha256": "208c8b8ddd31068f30aea13f456384e89f0c140be44293fa82b513b01f89379f"
-    },
-    "diagnostic:wind_speed_500hpa_max": {
-      "file": "wd-atlas-diag-v6-wind_speed_500hpa_max.f32.gz",
-      "field": "wind_speed_500hpa_400km_max_m_s",
-      "bytes": 938424,
-      "uncompressed_bytes": 1841644,
-      "sha256": "5cef3a913cb2c5c24c19f22b422b2604e5638b7531e94f4d4bc8ebeb2c5d2ab0"
+      "file": "wd-atlas-diag-v7-wind_speed_500hpa.f32.gz",
+      "bytes": 3160064,
+      "uncompressed_bytes": 5973692,
+      "sha256": "7e44484b8339b5020ccc26130e82d02acd04df420ff343b610eaaaff722057ed",
+      "field": "wind_speed_500hpa_400km_mean_m_s"
     },
     "diagnostic:temperature_500hpa_k": {
-      "file": "wd-atlas-diag-v6-temperature_500hpa_k.f32.gz",
-      "field": "temperature_500hpa_400km_mean_k",
-      "bytes": 859977,
-      "uncompressed_bytes": 1841644,
-      "sha256": "c70dcbc48cdca2378c1e7440547f67b81d92f95dbcfeb04a418f29b6c7ffc36a"
+      "file": "wd-atlas-diag-v7-temperature_500hpa_k.f32.gz",
+      "bytes": 2859054,
+      "uncompressed_bytes": 5973692,
+      "sha256": "eb32ee108c506ea59dc5108f557255531dbfcbc4a26995d364e2a9fe4fcc5247",
+      "field": "temperature_500hpa_400km_mean_k"
     },
     "diagnostic:specific_humidity_500hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-specific_humidity_500hpa_g_kg.f32.gz",
-      "field": "specific_humidity_500hpa_400km_mean_g_kg",
-      "bytes": 958274,
-      "uncompressed_bytes": 1841644,
-      "sha256": "0c9e1a6c6dd2b92d62a1a09b059b5fa38897112e5c591d7debdd3b27e7b5b888"
+      "file": "wd-atlas-diag-v7-specific_humidity_500hpa_g_kg.f32.gz",
+      "bytes": 3216754,
+      "uncompressed_bytes": 5973692,
+      "sha256": "b996e65eafc679d81786be55f84563299be8131cad5714edc8fb9493ed178797",
+      "field": "specific_humidity_500hpa_400km_mean_g_kg"
     },
     "diagnostic:relative_humidity_500hpa_pct": {
-      "file": "wd-atlas-diag-v6-relative_humidity_500hpa_pct.f32.gz",
-      "field": "relative_humidity_500hpa_400km_mean_pct",
-      "bytes": 950328,
-      "uncompressed_bytes": 1841644,
-      "sha256": "a170dbe5e349d5058e43cb48c9659d6a1a876f446d258a2dbe6614c12e1312df"
+      "file": "wd-atlas-diag-v7-relative_humidity_500hpa_pct.f32.gz",
+      "bytes": 3189943,
+      "uncompressed_bytes": 5973692,
+      "sha256": "2499618f62170a5411c9133e0283d95c2c311fd6484ef2e85a4d168d603a748a",
+      "field": "relative_humidity_500hpa_400km_mean_pct"
     },
     "diagnostic:zonal_moisture_flux_500hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-zonal_moisture_flux_500hpa_g_kg.f32.gz",
-      "field": "zonal_moisture_flux_500hpa_400km_mean_g_kg_m_s",
-      "bytes": 971689,
-      "uncompressed_bytes": 1841644,
-      "sha256": "b4bd4bec605ac38ed0e10971b6f22c239ba5055c4e16df6e595d31f044b7935f"
+      "file": "wd-atlas-diag-v7-zonal_moisture_flux_500hpa_g_kg.f32.gz",
+      "bytes": 3272634,
+      "uncompressed_bytes": 5973692,
+      "sha256": "323507a98327cac58407ab11640ccf6b5376743c8f33024a558fb59e07196adc",
+      "field": "zonal_moisture_flux_500hpa_400km_mean_g_kg_m_s"
     },
     "diagnostic:meridional_moisture_flux_500hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-meridional_moisture_flux_500hpa_g_kg.f32.gz",
-      "field": "meridional_moisture_flux_500hpa_400km_mean_g_kg_m_s",
-      "bytes": 1000180,
-      "uncompressed_bytes": 1841644,
-      "sha256": "3a1bbeffbde8ac802c3758ac3fa6c89047d337b59c55ba415c4740510cb96ddd"
+      "file": "wd-atlas-diag-v7-meridional_moisture_flux_500hpa_g_kg.f32.gz",
+      "bytes": 3360057,
+      "uncompressed_bytes": 5973692,
+      "sha256": "ac56401810f3557d873215a679801e66a4aac6a0002044922be8a1adefab3176",
+      "field": "meridional_moisture_flux_500hpa_400km_mean_g_kg_m_s"
+    },
+    "diagnostic:wind_speed_500hpa_max": {
+      "file": "wd-atlas-diag-v7-wind_speed_500hpa_max.f32.gz",
+      "bytes": 3138143,
+      "uncompressed_bytes": 5973692,
+      "sha256": "1f92223fa9421d303b32ecd0e430d83c4d78ccdda5390c0a05eeb232e46f777c",
+      "field": "wind_speed_500hpa_400km_max_m_s"
     },
     "diagnostic:moisture_flux_magnitude_500hpa_g_kg": {
-      "file": "wd-atlas-diag-v6-moisture_flux_magnitude_500hpa_g_kg.f32.gz",
-      "field": "moisture_flux_magnitude_500hpa_400km_mean_g_kg_m_s",
-      "bytes": 962287,
-      "uncompressed_bytes": 1841644,
-      "sha256": "17b0f022c8e97dd24325b948a4674e62a07c7a6e4cdf80af9d9696b468d6fec8"
+      "file": "wd-atlas-diag-v7-moisture_flux_magnitude_500hpa_g_kg.f32.gz",
+      "bytes": 3228436,
+      "uncompressed_bytes": 5973692,
+      "sha256": "3dbab3e2746e9f463a58d72120cbc6467f7d41032e29a6331951eaec8d7b02ae",
+      "field": "moisture_flux_magnitude_500hpa_400km_mean_g_kg_m_s"
+    },
+    "diagnostic:vo_500": {
+      "file": "wd-atlas-diag-v7-vo_500.f32.gz",
+      "bytes": 3269492,
+      "uncompressed_bytes": 5973692,
+      "sha256": "46a6831c87d0fb07191f48dd5de5702c5dd5409aee2ab89e42ccaff0b56ff209",
+      "field": "vo_mean_500_400km"
     },
     "diagnostic:wind_shear_850_500hpa": {
-      "file": "wd-atlas-diag-v6-wind_shear_850_500hpa.f32.gz",
-      "field": "wind_shear_850_500hpa_400km_m_s",
-      "bytes": 952415,
-      "uncompressed_bytes": 1841644,
-      "sha256": "50a6b4c903999348188793a3cc913164de0105dbf15f2a46a4a1bf300336c8e3"
+      "file": "wd-atlas-diag-v7-wind_shear_850_500hpa.f32.gz",
+      "bytes": 3191284,
+      "uncompressed_bytes": 5973692,
+      "sha256": "d3f1abcfa0a88a2971aa122844e9622c49c81d4be4bdc901657959a8a466a3f3",
+      "field": "wind_shear_850_500hpa_400km_m_s"
     },
     "diagnostic:temperature_difference_500_850hpa_k": {
-      "file": "wd-atlas-diag-v6-temperature_difference_500_850hpa_k.f32.gz",
-      "field": "temperature_difference_500_850hpa_400km_k",
-      "bytes": 916773,
-      "uncompressed_bytes": 1841644,
-      "sha256": "491ccd55000ed26556f2e1d1d3ea0292c9a413f0fc3e041e7f9fe5fef0a4e86a"
+      "file": "wd-atlas-diag-v7-temperature_difference_500_850hpa_k.f32.gz",
+      "bytes": 3077014,
+      "uncompressed_bytes": 5973692,
+      "sha256": "305444f7583db1ad286da8c30df2a60c9a84b1e8646b347ffa4041140d05b9e2",
+      "field": "temperature_difference_500_850hpa_400km_k"
     },
     "diagnostic:relative_humidity_850_500hpa_layer_pct": {
-      "file": "wd-atlas-diag-v6-relative_humidity_850_500hpa_layer_pct.f32.gz",
-      "field": "relative_humidity_850_500hpa_layer_mean_400km_pct",
-      "bytes": 942084,
-      "uncompressed_bytes": 1841644,
-      "sha256": "91ce6bee763412ec80e3513629c469430f9e2606534197d7f7c1b775e43a8e53"
+      "file": "wd-atlas-diag-v7-relative_humidity_850_500hpa_layer_pct.f32.gz",
+      "bytes": 3168826,
+      "uncompressed_bytes": 5973692,
+      "sha256": "6ddcf6e0dc27ffb44071cecb3cc5808cf32be384ff69d4a19407f40c9ad0293c",
+      "field": "relative_humidity_850_500hpa_layer_mean_400km_pct"
     },
-    "route_archetypes": {
-      "file": "wd-atlas-routes-v1.json.gz",
-      "bytes": 9669,
-      "sha256": "e19ad889fe3b9667bf6299e249a4a1be324c85ba2a84c222f81d8f8af872447c"
+    "diagnostic:precip_box_1hr_karakoram": {
+      "file": "wd-atlas-diag-v7-precip_box_1hr_karakoram.f32.gz",
+      "bytes": 1039505,
+      "uncompressed_bytes": 5973692,
+      "sha256": "48e14b5139900ebac697435aa429853fe5b9e5e46ff1133123326eacd8acefda",
+      "field": "precip_box_1hr_karakoram"
     },
-    "climate_indices": {
-      "file": "wd-atlas-climate-v1.json.gz",
-      "bytes": 34271,
-      "sha256": "8cbe07beed20c1e6d0bf9cec47165f0f46fa8fb1bcf55006d173e5a4e1a8dd66"
+    "diagnostic:precip_box_24hr_karakoram": {
+      "file": "wd-atlas-diag-v7-precip_box_24hr_karakoram.f32.gz",
+      "bytes": 1047035,
+      "uncompressed_bytes": 5973692,
+      "sha256": "ee03b0e34982e1d0c4fd35fc2a800e2e8a166ecf41a3e40fcc65f7bb0d5a47d5",
+      "field": "precip_box_24hr_karakoram"
     },
-    "jet_manifest": {
-      "file": "wd-atlas-jet-v1.json",
-      "bytes": 2905,
-      "sha256": "6331ea9dd7312e94931952f7375129f7cb3dc1fc69ae989e37189206faf3a3dc"
+    "diagnostic:precip_box_1hr_hindu_kush": {
+      "file": "wd-atlas-diag-v7-precip_box_1hr_hindu_kush.f32.gz",
+      "bytes": 1018566,
+      "uncompressed_bytes": 5973692,
+      "sha256": "865b8f12ffa5394dec21fded089fa2e9a1d770b87068b6e4dd5b5b70f0d03a51",
+      "field": "precip_box_1hr_hindu_kush"
     },
-    "diagnostic:jet_axis_latitude_200hpa": {
-      "file": "wd-atlas-diag-v6-jet_axis_latitude_200hpa.f32.gz",
-      "bytes": 265315,
-      "sha256": "74ec6c668eb6efba6ea3a856cbe0be02a2052cc9b72f8936905d297d07f765c7"
+    "diagnostic:precip_box_24hr_hindu_kush": {
+      "file": "wd-atlas-diag-v7-precip_box_24hr_hindu_kush.f32.gz",
+      "bytes": 1039243,
+      "uncompressed_bytes": 5973692,
+      "sha256": "208da0a2e8b8071880a284560bdd60f9bbaa84e378eff7187c6f16af61069158",
+      "field": "precip_box_24hr_hindu_kush"
     },
-    "diagnostic:jet_axis_distance_200hpa": {
-      "file": "wd-atlas-diag-v6-jet_axis_distance_200hpa.f32.gz",
-      "bytes": 667213,
-      "sha256": "c8209e4b2b2598913a9560c02b14e3a8e43fdf58c139615b3eab34848abf915d"
+    "diagnostic:precip_box_1hr_western_himalaya": {
+      "file": "wd-atlas-diag-v7-precip_box_1hr_western_himalaya.f32.gz",
+      "bytes": 1046978,
+      "uncompressed_bytes": 5973692,
+      "sha256": "941d6290fbd0079f8c900d17b51af85138535fcb409c5c9f41a34fcbc9c52578",
+      "field": "precip_box_1hr_western_himalaya"
     },
-    "diagnostic:jet_axis_wind_speed_200hpa": {
-      "file": "wd-atlas-diag-v6-jet_axis_wind_speed_200hpa.f32.gz",
-      "bytes": 831639,
-      "sha256": "37cc8933e21271432efbf7cf6122422ecc2b1bdad53104696fc836d4c3e5fcdb"
+    "diagnostic:precip_box_24hr_western_himalaya": {
+      "file": "wd-atlas-diag-v7-precip_box_24hr_western_himalaya.f32.gz",
+      "bytes": 1051110,
+      "uncompressed_bytes": 5973692,
+      "sha256": "7c9c47398321f5fb1ca04c6b96dcfd0493ea17b5d119de0b9710be52c625724a",
+      "field": "precip_box_24hr_western_himalaya"
     },
-    "diagnostic:local_wind_speed_200hpa": {
-      "file": "wd-atlas-diag-v6-local_wind_speed_200hpa.f32.gz",
-      "bytes": 909814,
-      "sha256": "795a3ebdbaa7ba831c4315363276134aa667142444d0bea8f4afbec1f7ce757b"
+    "diagnostic:precip_box_1hr_central_himalaya": {
+      "file": "wd-atlas-diag-v7-precip_box_1hr_central_himalaya.f32.gz",
+      "bytes": 1053709,
+      "uncompressed_bytes": 5973692,
+      "sha256": "1df347a82a700a1cabb3cfa06b9145b9c497a1016010ba2f2cf9282c4390e65f",
+      "field": "precip_box_1hr_central_himalaya"
     },
-    "extension:atlas-app.js": {
-      "file": "atlas-app.js",
-      "bytes": 169007,
-      "sha256": "405cc8e3b5a9c5672c5ad21002027c39bf346f48087fb54fbcbb26de1b181378"
+    "diagnostic:precip_box_24hr_central_himalaya": {
+      "file": "wd-atlas-diag-v7-precip_box_24hr_central_himalaya.f32.gz",
+      "bytes": 1048191,
+      "uncompressed_bytes": 5973692,
+      "sha256": "9b7072d7058cec17496cd9e3778b247bc2c837e7d78d23fd8e450e8709da911d",
+      "field": "precip_box_24hr_central_himalaya"
     },
-    "extension:atlas.css": {
-      "file": "atlas.css",
-      "bytes": 30732,
-      "sha256": "66ba1852066a661b2d9c28c4228210b04c7dc8153b5facaba01269bd2d0edca5"
+    "diagnostic:precip_box_1hr_north_india": {
+      "file": "wd-atlas-diag-v7-precip_box_1hr_north_india.f32.gz",
+      "bytes": 1055740,
+      "uncompressed_bytes": 5973692,
+      "sha256": "cb27a2f3d4fed3078cfb33e74febdb4f71d5edce5a4fdf96de11748c839fcb05",
+      "field": "precip_box_1hr_north_india"
     },
-    "extension:analysis-core.js": {
-      "file": "analysis-core.js",
-      "bytes": 3607,
-      "sha256": "e93b56c66cb75d8db8784be051eb3a5dbd23947bffe54fed8e1c05c4138fcd10"
+    "diagnostic:precip_box_24hr_north_india": {
+      "file": "wd-atlas-diag-v7-precip_box_24hr_north_india.f32.gz",
+      "bytes": 1051338,
+      "uncompressed_bytes": 5973692,
+      "sha256": "1ad922bae2a4fc7b4fba671ae024e79f588d73a11ccc307e5894589087490e1c",
+      "field": "precip_box_24hr_north_india"
     },
-    "extension:atlas-science.js": {
-      "file": "atlas-science.js",
-      "bytes": 24359,
-      "sha256": "3b55890bd7837e40a61b6382a440545495385fc4da28e787ae2e4526fbea7e33"
+    "diagnostic:area_km2": {
+      "file": "wd-atlas-diag-v7-area_km2.f32.gz",
+      "bytes": 5274106,
+      "uncompressed_bytes": 5973692,
+      "sha256": "26ea433012d1c0c86ba3a49fad448e5f1aa5cd476cca08b80214d65f50753cde",
+      "field": "area_km2"
     },
-    "extension:atlas-reanalyses.js": {
-      "file": "atlas-reanalyses.js",
-      "bytes": 3400,
-      "sha256": "2775d5a5d560f3dcc192b42ec091cd6bd5612ca0218f61ebf4a59eb737ff5acd"
+    "diagnostic:circulation_m2_s": {
+      "file": "wd-atlas-diag-v7-circulation_m2_s.f32.gz",
+      "bytes": 5378985,
+      "uncompressed_bytes": 5973692,
+      "sha256": "2233ff6939f21f0ae47edda2a034b4d789b89e5d3cfb8aed61c754d61e6f52ff",
+      "field": "circulation_m2_s"
     },
-    "extension:atlas-forecast.js": {
-      "file": "atlas-forecast.js",
-      "bytes": 20940,
-      "sha256": "56dfd754ae0f3c8a1453f69d867cde6ed3445d68946a69499100b4a441ad1522"
+    "diagnostic:aspect_ratio": {
+      "file": "wd-atlas-diag-v7-aspect_ratio.f32.gz",
+      "bytes": 5266359,
+      "uncompressed_bytes": 5973692,
+      "sha256": "dcead132f7810285b9b46fee5da115b974cbe9168855008d88023dfe5c9b8b34",
+      "field": "aspect_ratio"
     },
-    "extension:atlas-composites.js": {
-      "file": "atlas-composites.js",
-      "bytes": 12481,
-      "sha256": "d90e51121872d3862e1bae1024c6dde1e9c5416289bfff0afa3f7e9ec8c6b0bf"
+    "diagnostic:mean_vorticity": {
+      "file": "wd-atlas-diag-v7-mean_vorticity.f32.gz",
+      "bytes": 5263952,
+      "uncompressed_bytes": 5973692,
+      "sha256": "6c2656bb9b514f2f66e1d07b302bb04bb851c3bd9ec1f68da0f22f95ea0dbd76",
+      "field": "mean_vorticity"
     },
-    "extension:atlas-climate-change.js": {
-      "file": "atlas-climate-change.js",
-      "bytes": 8819,
-      "sha256": "9b62ac1a209ec594c506eda990d40cea298df1333823091e0f331dcdf9679f60"
+    "diagnostic:prediction_error_km": {
+      "file": "wd-atlas-diag-v7-prediction_error_km.f32.gz",
+      "bytes": 5291358,
+      "uncompressed_bytes": 5973692,
+      "sha256": "35a6601c3aeba0bd5f7f36671c0f52fe930ca45b310e4a328c95cc229f3a31d8",
+      "field": "prediction_error_km"
     },
-    "extension:wd-reanalysis-matches-v1.json.gz": {
-      "file": "wd-reanalysis-matches-v1.json.gz",
-      "bytes": 807895,
-      "sha256": "8e9cd4edd4df6007c1ad9569ad767cbdd9811412d084b76fc74a5c5e2cb12d84"
+    "diagnostic:advected_overlap": {
+      "file": "wd-atlas-diag-v7-advected_overlap.f32.gz",
+      "bytes": 4988245,
+      "uncompressed_bytes": 5973692,
+      "sha256": "e5d74e3756301ee2527d97e45e78bce458d71d2e92756f07cc4af6e35b4ea2e3",
+      "field": "advected_overlap"
     },
-    "extension:wd-climate-change-v1.json.gz": {
-      "file": "wd-climate-change-v1.json.gz",
-      "bytes": 133012,
-      "sha256": "05d4287506cfc1d33c203afb5b7ba7803c890bd57ff6cb96f8e597dc658890fd"
+    "catalogue": {
+      "file": "wd-atlas-catalogue-v7.json.gz",
+      "bytes": 2744037,
+      "uncompressed_bytes": 10967775,
+      "sha256": "9433f76700c4726c8063f935556873597352f2241a420f82020e8dbd9657e6e5"
+    },
+    "fixes": {
+      "file": "wd-atlas-points-v7.i16.gz",
+      "bytes": 7795921,
+      "uncompressed_bytes": 11947384,
+      "sha256": "9ff92c8f2e7f4e45b6ab8ab4040eff8ac48f35e700f2c512dfc4238cc55050d8"
+    },
+    "times": {
+      "file": "wd-atlas-times-v7.i32.gz",
+      "bytes": 548437,
+      "uncompressed_bytes": 5973692,
+      "sha256": "bba8f93579d2a4541af27de355324b122075072aa3a2c0638b4df47eee929909"
+    },
+    "coordinates": {
+      "file": "wd-atlas-coordinates-v7.f32.gz",
+      "bytes": 10497565,
+      "uncompressed_bytes": 11947384,
+      "sha256": "25d2802a09bd9bf98ad3fe93e4ea59c62937726832a2a6ed3c20821a721d107a"
+    },
+    "context:wd-atlas-routes-v7.json.gz": {
+      "file": "wd-atlas-routes-v7.json.gz",
+      "bytes": 24592,
+      "uncompressed_bytes": 100816,
+      "sha256": "cf4f37b1e2930237f35f7708434dfaf433b0b10014f11f3e8f6815b065093828"
+    },
+    "context:wd-atlas-climate-v7.json.gz": {
+      "file": "wd-atlas-climate-v7.json.gz",
+      "bytes": 54024,
+      "uncompressed_bytes": 1883239,
+      "sha256": "e2dd3f5c3793414454b3f428f4cedd0bf00c511f68a0b16853934370ea02872d"
+    },
+    "context:wd-atlas-jet-v7.json": {
+      "file": "wd-atlas-jet-v7.json",
+      "bytes": 1380444,
+      "uncompressed_bytes": 1380444,
+      "sha256": "9a255eab4227a8f33f854ffe928e6063dcdf74e7a2a3c47dd7fc5ecd495a5112"
+    },
+    "context:wd-reanalysis-matches-v7.json.gz": {
+      "file": "wd-reanalysis-matches-v7.json.gz",
+      "bytes": 2252515,
+      "uncompressed_bytes": 8493027,
+      "sha256": "b846a1d3fcb6d8b93117ca7ce39ed077eb2040e635bce6bb99f9387a84ccdf6a"
+    },
+    "context:wd-atlas-diag-v7-jet_axis_latitude_200hpa.f32.gz": {
+      "file": "wd-atlas-diag-v7-jet_axis_latitude_200hpa.f32.gz",
+      "bytes": 642003,
+      "uncompressed_bytes": 5973692,
+      "sha256": "c5e4fa429f457fd73c3d98ddbae9942d7b00f9333e204a6aba011f3a9e5d7e73"
+    },
+    "context:wd-atlas-diag-v7-jet_axis_distance_200hpa.f32.gz": {
+      "file": "wd-atlas-diag-v7-jet_axis_distance_200hpa.f32.gz",
+      "bytes": 1653391,
+      "uncompressed_bytes": 5973692,
+      "sha256": "2896991784a0cd05227a52de5f2fae07d485281da7ad0963fbedc805a8064b28"
+    },
+    "context:wd-atlas-diag-v7-jet_axis_wind_speed_200hpa.f32.gz": {
+      "file": "wd-atlas-diag-v7-jet_axis_wind_speed_200hpa.f32.gz",
+      "bytes": 1923126,
+      "uncompressed_bytes": 5973692,
+      "sha256": "ef700d0739315ca1c8bdff4fff251ffbbe6aa958dc963468a2cf905d162b69d4"
+    },
+    "context:wd-atlas-diag-v7-local_wind_speed_200hpa.f32.gz": {
+      "file": "wd-atlas-diag-v7-local_wind_speed_200hpa.f32.gz",
+      "bytes": 2107125,
+      "uncompressed_bytes": 5973692,
+      "sha256": "50c2d211761159aa7fe73544eaa0d1cd1e0d9a2d8de3af26d7ef24d54901a361"
     }
   }
 }

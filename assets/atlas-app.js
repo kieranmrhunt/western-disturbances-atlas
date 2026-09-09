@@ -5,9 +5,9 @@
 	const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 	const CONFIG = JSON.parse($("#wd-data-config").textContent);
 	const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-	const REGION_LABELS = ["Karakoram", "Hindu Kush", "W. Himalaya", "C. Himalaya", "N. India"];
-	const REGION_LONG = ["Karakoram", "Hindu Kush", "Western Himalaya", "Central Himalaya", "North India"];
-	const REGION_COLORS = ["#8f2938", "#233f78", "#08736f", "#5c7d43", "#c3931d"];
+	const REGION_LABELS = ["Karakoram", "Hindu Kush", "W. Himalaya", "C. Himalaya", "N. India", "Unavailable"];
+	const REGION_LONG = ["Karakoram", "Hindu Kush", "Western Himalaya", "Central Himalaya", "North India", "Unavailable"];
+	const REGION_COLORS = ["#8f2938", "#233f78", "#08736f", "#5c7d43", "#c3931d", "#888888"];
 	const REGION_KEYS = ["rk", "rh", "rw", "rc", "rn"];
 	const REGION_BOXES = [[74, 78, 35, 37.5], [68, 73, 34, 37], [73, 79, 30, 34], [79, 86, 27, 30.5], [74, 85, 25, 30]];
 	const LYSIS_REGIONS = Object.freeze([
@@ -18,7 +18,7 @@
 	]);
 	const SERIES_COLOURS = ["#aa3d2d", "#233f78", "#08736f"];
 	const VERTICAL_METRICS = Object.freeze({
-		vorticity: { label: "Vorticity", keys: ["vo_850", "vo_700", "vo_500"], unit: "10⁻⁵ s⁻¹", decimals: 2 },
+		vorticity: { label: "Vorticity", keys: ["vo_850", "vo_700", "vo_500", "vo_450hpa", "vo_400hpa", "vo_350hpa", "vo_300hpa"], levels: [850, 700, 500, 450, 400, 350, 300], unit: "10⁻⁵ s⁻¹", decimals: 2 },
 		wind_speed: { label: "Wind speed", keys: ["wind_speed_850hpa", "wind_speed_700hpa", "wind_speed_500hpa"], unit: "m s⁻¹", decimals: 1 },
 		temperature: { label: "Temperature", keys: ["temperature_850hpa_k", "temperature_700hpa_k", "temperature_500hpa_k"], unit: "K", decimals: 1 },
 		relative_humidity: { label: "Relative humidity", keys: ["relative_humidity_850hpa_pct", "relative_humidity_700hpa_pct", "relative_humidity_500hpa_pct"], unit: "%", decimals: 0 },
@@ -79,6 +79,8 @@
 	let PVORT;
 	let PRAIN;
 	let PTIME;
+	let ENTRYLON;
+	let ENTRYLAT;
 	const diagnosticArrays = new Map();
 	const diagnosticPromises = new Map();
 	const diagnosticErrors = new Map();
@@ -131,6 +133,8 @@
 	let impactArchiveStatus = "unavailable";
 	let science;
 	const timeAnchorCache = new Map();
+	const entryCache = new Map();
+	const DEFAULT_ENTRY = Object.freeze({mode: "cross", west: 70, east: 80, south: 20, north: 50});
 
 	const state = {
 		timeMode: "years",
@@ -147,7 +151,9 @@
 		intensityMin: 0,
 		rainMin: 0,
 		lengthMin: 0,
-		durationMin: 0,
+		durationMin: 48,
+		entry: {...DEFAULT_ENTRY},
+		quality: "screened",
 		spellFilter: "all",
 		climate: { oni: "all", nao: "all", ao: "all", pna: "all", mjo: "all" },
 		query: "",
@@ -185,13 +191,14 @@
 	});
 
 	async function initialise() {
-		const [catalogueBuffer, fixesBuffer, timesBuffer, routesBuffer, climateBuffer, jetBuffer] = await Promise.all([
+		const [catalogueBuffer, fixesBuffer, timesBuffer, routesBuffer, climateBuffer, jetBuffer, coordinatesBuffer] = await Promise.all([
 			fetchInflated(CONFIG.catalogue),
 			fetchInflated(CONFIG.fixes),
 			fetchInflated(CONFIG.times),
 			CONFIG.routes ? fetchInflated(CONFIG.routes) : Promise.resolve(null),
 			CONFIG.climate ? fetchInflated(CONFIG.climate) : Promise.resolve(null),
-			CONFIG.jet ? fetchInflated(CONFIG.jet) : Promise.resolve(null)
+			CONFIG.jet ? fetchInflated(CONFIG.jet) : Promise.resolve(null),
+			fetchInflated(CONFIG.coordinates)
 		]);
 		DATA = JSON.parse(new TextDecoder().decode(catalogueBuffer));
 		CAT = DATA.cat;
@@ -210,6 +217,10 @@
 		PVORT = fixes.subarray(META.npts * 2, META.npts * 3);
 		PRAIN = fixes.subarray(META.npts * 3, META.npts * 4);
 		PTIME = new Int32Array(timesBuffer);
+		const coordinates = new Float32Array(coordinatesBuffer);
+		if (coordinates.length !== META.npts * 2) throw new Error("Geographic filter coordinate count mismatch");
+		ENTRYLON = coordinates.subarray(0, META.npts);
+		ENTRYLAT = coordinates.subarray(META.npts);
 		if (PTIME.length !== META.npts) {
 			throw new Error(`Time asset contains ${PTIME.length} values; expected ${META.npts}.`);
 		}
@@ -266,6 +277,7 @@
 			const response = await fetch(`${base}/impact-manifest.json`, { cache: "no-cache" });
 			if (!response.ok) return;
 			const manifest = await response.json();
+			if (manifest.catalogue !== CONFIG.catalogueVersion) throw new Error("Footprint catalogue mismatch");
 			impactArchiveStatus = manifest.status || "available";
 			impactAvailableYears = new Set((manifest.years || []).map((entry) => Number(entry.year)).filter(Number.isFinite));
 		} catch (_) {
@@ -359,6 +371,7 @@
 				for (let fix = 1; fix < length; fix += 1) {
 					const first = start + fix - 1;
 					const second = first + 1;
+					if (Math.abs(PLON[second] - PLON[first]) > 18000 || PTIME[second] - PTIME[first] > 9) continue;
 					const segment = owner.length;
 					x1.push(PLON[first] / 100); y1.push(PLAT[first] / 100);
 					x2.push(PLON[second] / 100); y2.push(PLAT[second] / 100);
@@ -441,6 +454,18 @@
 	}
 
 	function bindInterface() {
+		$("#wdOpenData").addEventListener("click", () => switchTab("data"));
+		$("#wdEntryMode").addEventListener("change", event => { state.entry = {...state.entry, mode:event.target.value}; syncEntryControls(); applyFilters(); });
+		$("#wdQuality").addEventListener("change", event => { state.quality=event.target.value; applyFilters(); });
+		for (const [id,key] of [["West","west"],["East","east"],["South","south"],["North","north"]]) {
+			$("#wdEntry"+id).addEventListener("change", event => {
+				const input=event.target, value=input.valueAsNumber;
+				if (!Number.isFinite(value) || !input.checkValidity()) { input.reportValidity(); return; }
+				const next={...state.entry,[key]:value};
+				if (next.south > next.north) { $("#wdEntryStatus").textContent="Minimum latitude must not exceed maximum latitude."; return; }
+				state.entry=next; syncEntryControls(); applyFilters();
+			});
+		}
 		$("#wdMonthMode").addEventListener("change", (event) => { state.monthMode = event.target.value; syncControlsFromState(); applyFilters(); });
 		$("#wdDownloadFixes").disabled = selected < 0;
 		$$('[role="tab"][data-tab]').forEach((button) => {
@@ -820,7 +845,9 @@
 		state.intensityMin = 0;
 		state.rainMin = 0;
 		state.lengthMin = 0;
-		state.durationMin = 0;
+		state.durationMin = 48;
+		state.entry = {...DEFAULT_ENTRY};
+		state.quality = "screened";
 		state.spellFilter = "all";
 		state.climate = { oni: "all", nao: "all", ao: "all", pna: "all", mjo: "all" };
 		state.query = "";
@@ -829,6 +856,7 @@
 	}
 
 	function syncControlsFromState() {
+		syncEntryControls();
 		$("#wdMonthMode").value = state.monthMode;
 		$("#wdSearch").value = state.query;
 		$("#wdYearFields").hidden = state.timeMode !== "years";
@@ -908,10 +936,30 @@
 		const query = state.query.toLowerCase();
 		const dateQuery = /^\d{4}-\d{2}-\d{2}$/.test(query) ? query : "";
 		const compactQuery = query.replace(/[^a-z0-9]/g, "");
-		return { minimumActive, maximumActive, query, dateQuery, compactQuery };
+		const key=JSON.stringify(state.entry);
+		if (!entryCache.has(key)) {
+			const mask=new Uint8Array(META.ntracks);
+			for (let i=0;i<META.ntracks;i++) mask[i]=window.WDGeography.enters(ENTRYLON,ENTRYLAT,PTIME,...OFF[i],state.entry,1);
+			if (entryCache.size >= 12) entryCache.delete(entryCache.keys().next().value);
+			entryCache.set(key,mask);
+		}
+		return { minimumActive, maximumActive, query, dateQuery, compactQuery, entryMask:entryCache.get(key) };
+	}
+
+	function syncEntryControls() {
+		$("#wdEntryMode").value=state.entry.mode;
+		$("#wdQuality").value=state.quality;
+		for (const [id,key] of [["West","west"],["East","east"],["South","south"],["North","north"]]) {
+			const input=$("#wdEntry"+id);
+			if (document.activeElement !== input) input.value=state.entry[key];
+			$("#wdEntry"+id+"Field").hidden=state.entry.mode==='none' || (key==='east' && state.entry.mode!=='box');
+		}
+		$("#wdEntryWestLabel").textContent=state.entry.mode==='box'?'West (°E)':state.entry.mode==='east'?'East of (°E)':'Longitude (°E)';
+		$("#wdEntryStatus").textContent='Entry is tested anywhere along the trajectory, including between track points. Screened: ≥80% time coverage, ≤20% ambiguous or reverse-disagreed links, no boundary truncation.';
 	}
 
 	function trackMatchesFilters(index, excludedFacet, context) {
+		if (!context.entryMask[index] || (state.quality === "screened" && !CAT.quality[index])) return false;
 		if (excludedFacet !== "months" && !trackMonths(index, context).some(month => state.months.has(month))) return false;
 		if (!matchesTimeWindow(index, context)) return false;
 		if (CAT.pct_int[index] < state.intensityMin || CAT.pct_pr[index] < state.rainMin) return false;
@@ -978,8 +1026,10 @@
 	}
 
 	function updateFilterSummary() {
-		$("#wdResultCount").innerHTML = `<strong>${filtered.length.toLocaleString()}</strong> of ${META.ntracks.toLocaleString()} disturbances`;
+		$("#wdResultCount").innerHTML = `<strong>${filtered.length.toLocaleString()}</strong> of ${META.ntracks.toLocaleString()} tracks`;
 		const pieces = [];
+		if (state.entry.mode !== "none") pieces.push(state.entry.mode === "box" ? `enters ${state.entry.west}–${state.entry.east}°E, ${state.entry.south}–${state.entry.north}°N` : `${state.entry.mode === "cross" ? "crosses" : "east of"} ${state.entry.west}°E at ${state.entry.south}–${state.entry.north}°N`);
+		if (state.quality === "screened") pieces.push("quality screened");
 		if (state.intensityMin) pieces.push(`vorticity P${state.intensityMin}+`);
 		if (state.rainMin) pieces.push(`precipitation P${state.rainMin}+`);
 		if (state.genesisRegions.size) pieces.push(`${state.genesisRegions.size} genesis region${state.genesisRegions.size === 1 ? "" : "s"}`);
@@ -1529,7 +1579,7 @@
 			const point = start + j;
 			const x = projectX(PLON[point] / 100);
 			const y = projectY(PLAT[point] / 100);
-			j === 0 ? context.moveTo(x, y) : context.lineTo(x, y);
+			j === 0 || Math.abs(PLON[point] - PLON[point - 1]) > 18000 || PTIME[point] - PTIME[point - 1] > 9 ? context.moveTo(x, y) : context.lineTo(x, y);
 		}
 		context.globalAlpha = alpha;
 		context.strokeStyle = stroke;
@@ -1543,6 +1593,7 @@
 		if (!context) return;
 		context.clearRect(0, 0, map.width, map.height);
 		drawMapTimeFocus(context);
+		drawEntryRule(context);
 		if (window.WD_ATLAS) window.WDReanalyses?.draw(window.WD_ATLAS);
 		if (hovered >= 0 && hovered !== selected) drawHighlightedTrack(context, hovered, "#fffaf0", 3, false);
 		if (selected >= 0) {
@@ -1553,6 +1604,26 @@
 			context.restore();
 			drawHighlightedTrack(context, selected, css("--mla-ink", "#17130f"), 3.2, true);
 		}
+	}
+
+	function drawEntryRule(context) {
+		const rule = state.entry;
+		if (rule.mode === "none") return;
+		context.save();
+		context.strokeStyle = css("--mla-ink", "#17130f");
+		context.lineWidth = 1.5;
+		context.setLineDash([6, 5]);
+		const west = projectX(rule.west), north = projectY(rule.north), south = projectY(rule.south);
+		if (rule.mode === "cross") {
+			context.beginPath(); context.moveTo(west, north); context.lineTo(west, south); context.stroke();
+		} else {
+			const east = projectX(rule.mode === "east" ? 180 : rule.east);
+			if (rule.mode === "box" && rule.east < rule.west) {
+				context.strokeRect(west, north, projectX(180) - west, south - north);
+				context.strokeRect(projectX(-180), north, east - projectX(-180), south - north);
+			} else context.strokeRect(west, north, east - west, south - north);
+		}
+		context.restore();
 	}
 
 	function drawMapTimeFocus(context) {
@@ -1901,8 +1972,8 @@
 		const index = selected;
 		const [start, length] = OFF[index];
 		const last = start + length - 1;
-		const regionValues = REGION_KEYS.map((key) => Number(CAT[key][index]) || 0);
-		const maximumRegion = Math.max(1, ...regionValues);
+		const regionValues = REGION_KEYS.map((key) => CAT[key][index]);
+		const maximumRegion = Math.max(1, ...regionValues.filter(Number.isFinite));
 		const crossing = longitudeCrossing(index);
 		const route = routeDefinitions[routeByTrack ? routeByTrack[index] : -1];
 		const neighbours = selectionNeighbours(index);
@@ -1924,7 +1995,7 @@
 				<div class="mla-fact"><span>${state.crossingLongitude}°E crossing</span><strong>${crossing ? new Date(crossing.timeMillis).toISOString().slice(0, 16).replace("T", " ") : "Not crossed"}</strong><small>${crossing ? `${crossing.lat.toFixed(2)}°N · interpolated` : "within published track"}</small></div>
 				<div class="mla-fact"><span>WD sequence</span><strong>${spellSizeByTrack[index] > 1 ? `${spellSizeByTrack[index]}-system spell` : "Isolated"}</strong><small>same winter and impact region · ≤72 h gap</small></div>
 			</div>
-			<div class="mla-match-box"><h4>Peak regional 24 h precipitation</h4><div class="wd-region-list">${regionValues.map((value, region) => `<div class="wd-region-row"><span>${REGION_LABELS[region]}</span><span class="wd-region-bar"><i style="width:${value / maximumRegion * 100}%;background:${REGION_COLORS[region]}"></i></span><strong>${value.toFixed(1)} mm</strong></div>`).join("")}</div></div>
+			<div class="mla-match-box"><h4>Peak regional 24 h precipitation</h4><div class="wd-region-list">${regionValues.map((value, region) => `<div class="wd-region-row"><span>${REGION_LABELS[region]}</span><span class="wd-region-bar"><i style="width:${value / maximumRegion * 100}%;background:${REGION_COLORS[region]}"></i></span><strong>${Number.isFinite(value) ? value.toFixed(1) + " mm" : "—"}</strong></div>`).join("")}</div></div>
 			${CLIMATE ? `<div class="mla-match-box"><h4>Climate and circulation at genesis</h4><dl><dt>ENSO · ONI</dt><dd>${climateStateLabel("oni", index)}</dd><dt>NAO</dt><dd>${climateStateLabel("nao", index)}</dd><dt>AO</dt><dd>${climateStateLabel("ao", index)}</dd><dt>PNA</dt><dd>${climateStateLabel("pna", index)}</dd><dt>MJO · RMM</dt><dd>${climateStateLabel("mjo", index)}</dd></dl></div>` : ""}
 			<div class="mla-dossier-actions"><button class="mla-btn mla-btn-small" id="wdPreviousTrack" type="button" ${neighbours.previous < 0 ? "disabled" : ""}>Previous WD</button><button class="mla-btn mla-btn-small" id="wdNextTrack" type="button" ${neighbours.next < 0 ? "disabled" : ""}>Next WD</button><button class="mla-btn mla-btn-small" id="wdFitSelected" type="button">Fit track on map</button><button class="mla-btn mla-btn-small" id="wdDossierDownload" type="button">Download track points</button></div>`;
 		relationships.hidden = false;
@@ -1944,7 +2015,7 @@
 		if (!CAT) return;
 		const sort = $("#wdTableSort").value;
 		const direction = sort === "date" ? -1 : -1;
-		const ordered = filtered.slice().sort((a, b) => (tableSortValue(a, sort) - tableSortValue(b, sort)) * direction || CAT.id[a] - CAT.id[b]);
+		const ordered = filtered.slice().sort((a, b) => (tableSortValue(a, sort) - tableSortValue(b, sort)) * direction || String(CAT.id[a]).localeCompare(String(CAT.id[b])));
 		const pages = Math.max(1, Math.ceil(ordered.length / TABLE_PAGE_SIZE));
 		tablePage = clamp(tablePage, 0, pages - 1);
 		const start = tablePage * TABLE_PAGE_SIZE;
@@ -2150,6 +2221,7 @@
 		verticalChartHit = null;
 		if (selected < 0) { drawEmptyChart(context, width, height, "Select a disturbance to inspect its track-centred vertical structure."); $("#wdVerticalReadout").textContent = ""; return; }
 		const definition = VERTICAL_METRICS[$("#wdVerticalMetric").value] || VERTICAL_METRICS.vorticity;
+		const levels=definition.levels || [850,700,500], levelCount=levels.length;
 		const unavailable = definition.keys.find((key) => !metricIsReady(key, drawVerticalChart));
 		if (unavailable) { drawEmptyChart(context, width, height, diagnosticErrors.has(unavailable) ? `Could not load ${definition.label}.` : `Loading ${definition.label}…`); return; }
 		const points = trackPoints(selected), [start] = OFF[selected];
@@ -2162,25 +2234,27 @@
 		const left = 56, right = 22, top = 28, bottom = height - 38, plotWidth = width - left - right, plotHeight = bottom - top;
 		const maximumElapsed = Math.max(1, points.at(-1).elapsedHours);
 		verticalChartHit = { left, right: left + plotWidth, maximumElapsed, points };
-		for (let level = 0; level < 3; level += 1) {
-			const y = top + (2 - level) / 3 * plotHeight;
+		const pressureY = pressure => top + (levels[0] - pressure) / (levels[0] - levels.at(-1)) * plotHeight;
+		for (let level = 0; level < levelCount; level += 1) {
+			const y = level === levelCount - 1 ? top : pressureY((levels[level] + levels[level + 1]) / 2);
+			const yBottom = level === 0 ? bottom : pressureY((levels[level - 1] + levels[level]) / 2);
 			for (let fix = 0; fix < points.length; fix += 1) {
 				const x1 = left + points[fix].elapsedHours / maximumElapsed * plotWidth;
 				const x2 = fix + 1 < points.length ? left + points[fix + 1].elapsedHours / maximumElapsed * plotWidth : x1 + Math.max(2, plotWidth / points.length);
 				context.fillStyle = verticalColour(rows[level][fix], low, high, diverging);
-				context.fillRect(x1, y, Math.max(1, x2 - x1 + .5), plotHeight / 3 + .5);
+				context.fillRect(x1, y, Math.max(1, Math.min(left + plotWidth, x2) - x1 + .5), yBottom - y + .5);
 			}
 		}
 		context.strokeStyle = "rgba(40,33,25,.34)"; context.strokeRect(left, top, plotWidth, plotHeight);
 		context.fillStyle = css("--mla-muted", "#665d52"); context.font = "11px effra, Arial, sans-serif"; context.textAlign = "right"; context.textBaseline = "middle";
-		[500, 700, 850].forEach((level, index) => context.fillText(`${level} hPa`, left - 7, top + (index + .5) / 3 * plotHeight));
+		levels.forEach(level => context.fillText(`${level} hPa`, left - 7, pressureY(level)));
 		context.textAlign = "center"; context.textBaseline = "alphabetic"; context.fillText("Hours since genesis", left + plotWidth / 2, height - 9);
 		const focusX = left + points[focusFix].elapsedHours / maximumElapsed * plotWidth;
 		context.strokeStyle = css("--mla-ink", "#17130f"); context.setLineDash([4, 4]); context.beginPath(); context.moveTo(focusX, top); context.lineTo(focusX, bottom); context.stroke(); context.setLineDash([]);
 		const crossing = longitudeCrossing(selected);
 		if (crossing) { const crossingX = left + crossing.elapsedHours / maximumElapsed * plotWidth; context.strokeStyle = "rgba(255,250,240,.9)"; context.beginPath(); context.moveTo(crossingX, top); context.lineTo(crossingX, bottom); context.stroke(); }
 		context.fillStyle = css("--mla-ink", "#17130f"); context.textAlign = "left"; context.fillText(`${definition.label} · ${formatAxis(low)}–${formatAxis(high)} ${definition.unit} (2nd–98th percentile colour range)`, left, 17);
-		$("#wdVerticalReadout").textContent = `${formatTrackTime(selected, focusFix)} · ${[850, 700, 500].map((level, index) => `${level} hPa ${formatNumber(rows[index][focusFix], definition.decimals)} ${definition.unit}`).join(" · ")}`;
+		$("#wdVerticalReadout").textContent = `${formatTrackTime(selected, focusFix)} · ${levels.map((level, index) => `${level} hPa ${formatNumber(rows[index][focusFix], definition.decimals)} ${definition.unit}`).join(" · ")}`;
 	}
 
 	function verticalColour(value, low, high, diverging = false) {
@@ -2198,6 +2272,7 @@
 			if (!response.ok) throw new Error(`${response.status} while loading the ${year} footprint index`);
 			return response.json();
 		}).then(async (metadata) => {
+			if (metadata.catalogue !== CONFIG.catalogueVersion || metadata.year !== year) throw new Error("Footprint catalogue/year mismatch");
 			const buffer = await fetchInflated(`${base}/${year}/${year}.u16.gz`);
 			const values = new Uint16Array(buffer);
 			const expected = metadata.shape.reduce((product, value) => product * value, 1);
@@ -2465,7 +2540,7 @@
 			}
 			diagnosticTrackSummary(key);
 		}
-		const ordered = filtered.filter(index => Number.isFinite(extremeValue(index, metric))).sort((a, b) => extremeDirection(metric) * (extremeValue(b, metric) - extremeValue(a, metric)) || CAT.id[a] - CAT.id[b]);
+		const ordered = filtered.filter(index => Number.isFinite(extremeValue(index, metric))).sort((a, b) => extremeDirection(metric) * (extremeValue(b, metric) - extremeValue(a, metric)) || String(CAT.id[a]).localeCompare(String(CAT.id[b])));
 		const leaders = ordered.slice(0, 3);
 		$("#wdRecordCards").innerHTML = leaders.map((index, rank) => `<article class="mla-card mla-record" data-index="${index}"><span class="mla-eyebrow">Rank ${rank + 1}</span><h3><button class="mla-row-button" type="button">${trackName(index)}</button></h3><p>${formatGenesis(index)} · ${REGION_LONG[CAT.dom[index]]}</p><strong>${formatExtreme(index, metric)}</strong></article>`).join("") || '<p>No systems match the current filters.</p>';
 		$$('[data-index]', $("#wdRecordCards")).forEach((card) => card.addEventListener("click", () => { selectTrack(Number(card.dataset.index), { fit: true }); switchTab("explore"); }));
@@ -2501,7 +2576,7 @@
 	function formatExtreme(index, metric) {
 		const value = extremeValue(index, metric);
 		if (metric === "intensity") return `${value.toFixed(1)} ×10⁻⁵ s⁻¹ · P${Math.round(CAT.pct_int[index])}`;
-		if (metric === "rain") return Number.isFinite(value) ? `${value.toFixed(1)} mm · P${Math.round(CAT.pct_pr[index])}` : "not available";
+		if (metric === "rain") return Number.isFinite(value) ? `${Number.isFinite(value) ? value.toFixed(1) + " mm" : "—"} · P${Math.round(CAT.pct_pr[index])}` : "not available";
 		if (metric === "length") return `${Math.round(value).toLocaleString()} km`;
 		if (metric === "duration") return `${value} h`;
 		if (metric === "meanSpeed" || metric === "maxSpeed") return `${value.toFixed(1)} m s⁻¹`;
@@ -2637,6 +2712,8 @@
 			minimum_precipitation_catalogue_percentile: state.rainMin,
 			minimum_path_length_km: state.lengthMin,
 			minimum_duration_h: state.durationMin,
+			geographic_entry: {...state.entry},
+			track_quality: state.quality,
 			dominant_precipitation_regions: [...state.regions].sort((a, b) => a - b).map((region) => REGION_LONG[region]),
 			search: state.query || null
 		};
@@ -2669,6 +2746,11 @@
 
 	function readUrlState() {
 		const params = new URLSearchParams(window.location.search);
+		if (params.has('entry')) {
+			const [mode,...raw]=params.get('entry').split(','), values=raw.map(Number);
+			if (['none','box','east','cross'].includes(mode) && values.length===4 && values.every(Number.isFinite) && values[0]>=-180 && values[0]<=180 && values[1]>=-180 && values[1]<=180 && values[2]>=-90 && values[3]<=90 && values[2]<=values[3]) state.entry={mode,west:values[0],east:values[1],south:values[2],north:values[3]};
+		}
+		if (params.get('quality')==='all') state.quality='all';
 		if (["genesis", "active", "peakIntensity", "peakPrecipitation"].includes(params.get("monthMode"))) state.monthMode = params.get("monthMode");
 		if (params.has("months")) {
 			const months = params.get("months").split(",").map(Number).filter((month) => month >= 1 && month <= 12);
@@ -2744,7 +2826,9 @@
 		if (state.intensityMin) params.set("ip", state.intensityMin);
 		if (state.rainMin) params.set("rp", state.rainMin);
 		if (state.lengthMin) params.set("length", state.lengthMin);
-		if (state.durationMin) params.set("duration", state.durationMin);
+		params.set("duration", state.durationMin);
+		params.set('entry', [state.entry.mode,state.entry.west,state.entry.east,state.entry.south,state.entry.north].join(','));
+		if (state.quality==='all') params.set('quality','all');
 		if (state.regions.size) params.set("regions", [...state.regions].sort((a, b) => a - b).join(","));
 		if (state.genesisRegions.size) params.set("genesis", [...state.genesisRegions].sort((a, b) => a - b).map((region) => GENESIS_REGIONS[region].key).join(","));
 		if (state.lysisRegions.size) params.set("lysis", [...state.lysisRegions].sort((a, b) => a - b).map((region) => LYSIS_REGIONS[region].key).join(","));
@@ -2857,13 +2941,15 @@
 				const lower = Math.max(0, upper - 1);
 				const firstTime = PTIME[start + lower] - PTIME[start], secondTime = PTIME[start + upper] - PTIME[start];
 				const fraction = secondTime === firstTime ? 0 : (target - firstTime) / (secondTime - firstTime);
-				trackShapeFeatures[index * 18 + sample * 2] = (PLON[start + lower] + fraction * (PLON[start + upper] - PLON[start + lower])) / 100;
+				const firstLon = PLON[start + lower] / 100;
+				const longitudeDelta = ((PLON[start + upper] / 100 - firstLon + 540) % 360) - 180;
+				trackShapeFeatures[index * 18 + sample * 2] = ((firstLon + fraction * longitudeDelta + 540) % 360) - 180;
 				trackShapeFeatures[index * 18 + sample * 2 + 1] = (PLAT[start + lower] + fraction * (PLAT[start + upper] - PLAT[start + lower])) / 100;
 			}
 		}
 		for (const [year, indices] of years) {
-			indices.sort((a, b) => genesisMillis(a) - genesisMillis(b) || CAT.id[a] - CAT.id[b]);
-			indices.forEach((index, sequence) => { trackNames[index] = `WD ${year} ${String(sequence + 1).padStart(3, "0")}`; });
+			indices.sort((a, b) => genesisMillis(a) - genesisMillis(b) || String(CAT.id[a]).localeCompare(String(CAT.id[b])));
+			indices.forEach((index, sequence) => { trackNames[index] = CAT.uid?.[index] || `WD ${year} ${String(sequence + 1).padStart(3, "0")}`; });
 		}
 		buildSpellAssignments();
 	}
@@ -2871,7 +2957,7 @@
 	function buildSpellAssignments() {
 		const groups = new Map();
 		for (let index = 0; index < META.ntracks; index += 1) {
-			const key = `${winterYear(index)}:${CAT.dom[index]}`;
+			const key = CAT.dom[index] === 5 ? `unavailable:${index}` : `${winterYear(index)}:${CAT.dom[index]}`;
 			if (!groups.has(key)) groups.set(key, []);
 			groups.get(key).push(index);
 		}
@@ -2893,7 +2979,7 @@
 	}
 
 	function selectionNeighbours(index) {
-		const ordered = filtered.slice().sort((a, b) => genesisMillis(a) - genesisMillis(b) || CAT.id[a] - CAT.id[b]);
+		const ordered = filtered.slice().sort((a, b) => genesisMillis(a) - genesisMillis(b) || String(CAT.id[a]).localeCompare(String(CAT.id[b])));
 		const position = ordered.indexOf(index);
 		return { previous: position > 0 ? ordered[position - 1] : -1, next: position >= 0 && position < ordered.length - 1 ? ordered[position + 1] : -1 };
 	}
@@ -2906,16 +2992,16 @@
 			for (let sample = 0; sample < 9; sample += 1) {
 				const lonA = trackShapeFeatures[index * 18 + sample * 2], latA = trackShapeFeatures[index * 18 + sample * 2 + 1];
 				const lonB = trackShapeFeatures[candidate * 18 + sample * 2], latB = trackShapeFeatures[candidate * 18 + sample * 2 + 1];
-				const dx = (lonA - lonB) * Math.cos((latA + latB) * Math.PI / 360), dy = latA - latB;
+				const dx = (((lonA - lonB + 540) % 360) - 180) * Math.cos((latA + latB) * Math.PI / 360), dy = latA - latB;
 				shapeDistance += (dx * dx + dy * dy) / 100;
 			}
 			const durationDifference = Math.log(Math.max(3, CAT.dur[index]) / Math.max(3, CAT.dur[candidate]));
 			const pathDifference = Math.log(Math.max(10, CAT.len_km[index]) / Math.max(10, CAT.len_km[candidate]));
 			let distance = shapeDistance / 9 + .45 * ((CAT.pct_int[index] - CAT.pct_int[candidate]) / 30) ** 2 + .16 * durationDifference ** 2 + .16 * pathDifference ** 2 + .28 * regionalImpactDistance(index, candidate);
-			if (Number.isFinite(CAT.pct_pr[index]) && Number.isFinite(CAT.pct_pr[candidate])) distance += .24 * ((CAT.pct_pr[index] - CAT.pct_pr[candidate]) / 35) ** 2;
+			if (Number.isFinite(CAT.pk_pr[index]) && Number.isFinite(CAT.pk_pr[candidate])) distance += .24 * ((CAT.pct_pr[index] - CAT.pct_pr[candidate]) / 35) ** 2;
 			distances.push([candidate, Math.sqrt(distance)]);
 		}
-		distances.sort((a, b) => a[1] - b[1] || CAT.id[a[0]] - CAT.id[b[0]]);
+		distances.sort((a, b) => a[1] - b[1] || String(CAT.id[a[0]]).localeCompare(String(CAT.id[b[0]])));
 		const analogues = [], years = new Set();
 		for (const match of distances) {
 			const year = CAT.year[match[0]];
@@ -2929,6 +3015,7 @@
 	function regionalImpactDistance(first, second) {
 		let dot = 0, firstNorm = 0, secondNorm = 0;
 		for (const key of REGION_KEYS) {
+			if (!Number.isFinite(CAT[key][first]) || !Number.isFinite(CAT[key][second])) continue;
 			const firstValue = Math.log1p(Math.max(0, CAT[key][first] || 0));
 			const secondValue = Math.log1p(Math.max(0, CAT[key][second] || 0));
 			dot += firstValue * secondValue;
@@ -2948,6 +3035,7 @@
 			if (firstLon === longitude) return { lon: longitude, lat: PLAT[start + fix] / 100, timeMillis: fixTimeMillis(index, fix), elapsedHours: PTIME[start + fix] - PTIME[start] };
 			if (fix === length - 1) continue;
 			const secondLon = PLON[start + fix + 1] / 100;
+			if (Math.abs(secondLon - firstLon) > 180 || PTIME[start + fix + 1] - PTIME[start + fix] > 9) continue;
 			if ((firstLon - longitude) * (secondLon - longitude) > 0 || firstLon === secondLon) continue;
 			const fraction = (longitude - firstLon) / (secondLon - firstLon);
 			const timeHours = PTIME[start + fix] + fraction * (PTIME[start + fix + 1] - PTIME[start + fix]);

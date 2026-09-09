@@ -16,9 +16,9 @@ window.WDReanalyses = (() => {
     if (api.selected < 0) { status.textContent = 'Select a WD to compare matched reanalysis tracks.'; return; }
     if (!asset) {
       status.textContent = failure || 'Loading matched reanalysis tracks…';
-      if (!promise && !failure) promise = api.fetchInflated('assets/wd-reanalysis-matches-v1.json.gz').then(buffer => {
+      if (!promise && !failure) promise = api.fetchInflated(api.config.reanalyses || 'assets/wd-reanalysis-matches-v7.json.gz').then(buffer => {
         const value = JSON.parse(new TextDecoder().decode(buffer));
-        if (value.schema !== 'wd-reanalysis-matches-v1' || value.track_ids.length !== api.meta.ntracks || value.track_ids.some((id, i) => id !== api.cat.id[i])) throw new Error('Reanalysis asset does not match WD v6');
+        if (value.schema !== 'wd-reanalysis-matches-v1' || value.track_ids.length !== api.meta.ntracks || value.track_ids.some((id, i) => id !== api.cat.id[i])) throw new Error('Reanalysis asset does not match the catalogue');
         asset = value;
         Object.values(asset.sources).forEach(source => source.lookup = new Map(source.matches.map(m => [m.era5_track_id, m])));
         api.drawMap();

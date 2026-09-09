@@ -9,7 +9,7 @@ window.WDComposites = (() => {
   $('#wdCompositeSubsetStatus').insertAdjacentHTML('afterend','<button class="mla-btn mla-btn-small" id="wdCompositeSubsetExport" type="button">Download comparison fields</button><details class="mla-a11y-data"><summary>Coverage and averaging</summary><p>Each available WD contributes one mean per grid cell. Downloads include cell-level system counts. Older systems may have only the locally archived pressure levels; their lower-level pressure data are not surface-pressure masked. Missing fields are excluded, never treated as zero.</p></details>');
   function base(){return api.config.compositeBase||'.composite-runs';}
   async function get(url){if(!pending.has(url))pending.set(url,api.fetchInflated(url).then(b=>JSON.parse(new TextDecoder().decode(b))).catch(e=>{pending.delete(url);throw e;}));return pending.get(url);}
-  async function manifest(){if(inventory)return inventory;if(!inventoryPromise)inventoryPromise=get(`${base()}/manifest.json.gz`).then(v=>{if(v.schema!=='wd-composite-manifest-v1'||v.expected_tracks!==api.meta.ntracks)throw new Error('Composite catalogue mismatch');inventory=v;return v;}).catch(e=>{inventoryPromise=null;throw e;});return inventoryPromise;}
+  async function manifest(){if(inventory)return inventory;if(!inventoryPromise)inventoryPromise=get(`${base()}/manifest.json.gz`).then(v=>{if(v.schema!=='wd-composite-manifest-v1'||v.expected_tracks!==api.meta.ntracks||v.catalogue!==api.config.catalogueVersion)throw new Error('Composite catalogue mismatch');inventory=v;return v;}).catch(e=>{inventoryPromise=null;throw e;});return inventoryPromise;}
   function decode(field){return field?field.data.map(v=>v==null?null:v*field.scale):[];}
   async function selected(){
     plotted.delete('wdCompositeSelected');
@@ -18,7 +18,7 @@ window.WDComposites = (() => {
     try {
       $('#wdCompositeSelectedStatus').textContent='Loading storm-centred fields…';
       const inv=await manifest();if(!inv.available_tracks.includes(id))throw new Error('not in the published inventory');
-      let asset=tracks.get(id);if(!asset){asset=await get(`${base()}/tracks/track-${id}.json.gz`);if(asset.schema!=='wd-storm-composite-v1'||asset.track_id!==id)throw new Error('Composite track mismatch');tracks.set(id,asset);}
+      let asset=tracks.get(id);if(!asset){asset=await get(`${base()}/tracks/track-${id}.json.gz`);if(asset.schema!=='wd-storm-composite-v1'||asset.track_id!==id||asset.catalogue!==api.config.catalogueVersion)throw new Error('Composite track mismatch');tracks.set(id,asset);}
       if(request!==serial)return;
       const key=$('#wdCompositeVariable').value,field=key==='precipitation'?asset.precipitation:asset.section[key];
       paint('wdCompositeSelected',field,asset.grid.pressure_hpa,asset.grid.relative_degrees,key);

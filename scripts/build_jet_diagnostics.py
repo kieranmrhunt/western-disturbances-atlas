@@ -41,6 +41,7 @@ def main() -> None:
 	args = parser.parse_args()
 	with gzip.open(args.catalogue, "rt", encoding="utf-8") as stream:
 		catalogue = json.load(stream)
+	version = 'v7' if catalogue['meta']['schema'].endswith('v7') else 'v6'
 	npoints = int(catalogue["meta"]["npts"])
 	packed = np.frombuffer(gzip.decompress(args.fixes.read_bytes()), dtype="<i2")
 	hours = np.frombuffer(gzip.decompress(args.times.read_bytes()), dtype="<i4")
@@ -105,12 +106,15 @@ def main() -> None:
 		{"key": "local_wind_speed_200hpa", "label": "Local 200-hPa wind speed", "shortLabel": "local 200-hPa wind", "yLabel": "Local 200-hPa wind speed (m s⁻¹)", "unit": " m s⁻¹", "decimals": 1, "zeroBased": True, "group": "Jet relationship"},
 	]
 	for descriptor in descriptors:
-		filename = f"wd-atlas-diag-v6-{descriptor['key']}.f32.gz"
+		filename = f"wd-atlas-diag-{version}-{descriptor['key']}.f32.gz"
 		path = args.output_dir / filename
 		write_float(path, outputs[descriptor["key"]])
 		descriptor.update({"file": f"assets/{filename}", "colour": "--mla-indigo", "fallback": "#233f78", "available_fixes": int(np.isfinite(outputs[descriptor["key"]]).sum()), "bytes": path.stat().st_size, "sha256": sha256(path)})
 	manifest = {"schema": "western-disturbances-atlas-jet-diagnostics-v1", "source": str(args.source_dir), "definition": "Daily 200-hPa maximum wind speed and its latitude between 20 and 55°N, sampled at the WD longitude from 50 to 80°E", "source_coverage_note": "Thirty-four catalogue fixes on 29-31 October 2023 are unavailable in the dedicated daily-wind source; other dates and fixes outside 50-80E are handled explicitly as available or out of domain.", "built_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "diagnostics": descriptors}
-	manifest_path = args.output_dir / "wd-atlas-jet-v1.json"
+	manifest['catalogue'] = catalogue['meta'].get('catalogue_version', 'WD v6')
+	manifest['track_ids'] = catalogue['cat']['id']
+	manifest['source_coverage_note'] = 'Unavailable source dates and track points outside 50–80°E remain missing.'
+	manifest_path = args.output_dir / f"wd-atlas-jet-{version}.json"
 	manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 	build_manifest_path = ROOT / "assets/atlas-build-manifest.json"
 	if build_manifest_path.is_file() and args.output_dir.resolve() == (ROOT / "assets").resolve():

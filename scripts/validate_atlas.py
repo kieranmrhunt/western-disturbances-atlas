@@ -28,9 +28,11 @@ class IdParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.ids: list[str] = []
+        self.resources: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.ids.extend(value for key, value in attrs if key == "id" and value)
+        self.resources.extend(value.split('?')[0] for key,value in attrs if key in ('src','href') and value and value.startswith('assets/'))
 
 
 def check(condition: bool, message: str) -> None:
@@ -43,6 +45,8 @@ def main() -> None:
     parser = IdParser()
     parser.feed(html)
     check(len(parser.ids) == len(set(parser.ids)), "index.html contains duplicate IDs")
+    for resource in parser.resources:
+        check((ROOT/resource).is_file(),f"Broken local asset link: {resource}")
 
     config_match = re.search(
         r'<script id="wd-data-config" type="application/json">(.*?)</script>', html
@@ -50,7 +54,7 @@ def main() -> None:
     check(config_match is not None, "index.html has no WD data configuration")
     config = json.loads(config_match.group(1))
     check(config.get("weatherBase"), "Weather base URL is not configured")
-    check(config.get("catalogueVersion") == "WD v6", "Atlas is not labelled WD v6")
+    check(config.get("catalogueVersion") == "WD v7", "Atlas is not labelled WD v7")
     check(config.get("times"), "Actual track-point-time asset is not configured")
     check(config.get("routes") and config.get("climate") and config.get("jet"), "Derived route, climate or jet asset is not configured")
     check(config.get("impactBase"), "Impact-footprint archive is not configured")
@@ -71,7 +75,7 @@ def main() -> None:
     check('id="wdImpactChart"' in html and 'id="wdSpellChart"' in html, "Impact or sequence chart is missing")
     check("Solid line: median · filled band: IQR · dashed line: all-WD median." in html, "Subset-evolution encoding key is missing")
     check("rainfall" not in html.lower(), "User-facing rainfall terminology remains in index.html")
-    check("16,298" in html and "460,411" in html, "Static v6 counts are missing")
+    check("49,200" in html and "1,493,423" in html, "Static v7 counts are missing")
     check("10.5281/zenodo.18328597" in html, "Dataset concept DOI is missing")
 
     manifest_path = ROOT / "assets" / "atlas-build-manifest.json"
@@ -93,8 +97,8 @@ def main() -> None:
     cat = catalogue["cat"]
     offsets = catalogue["off"]
 
-    check(meta["ntracks"] == 16_298, "Unexpected catalogue track count")
-    check(meta["npts"] == 460_411, "Unexpected catalogue track-point count")
+    check(meta["ntracks"] == 49_200, "Unexpected catalogue track count")
+    check(meta["npts"] == 1_493_423, "Unexpected catalogue track-point count")
     check(len(offsets) == meta["ntracks"], "Offset count does not match track count")
     check(all(len(values) == meta["ntracks"] for values in cat.values()), "A catalogue summary column has the wrong length")
     check(len(fixes) == meta["npts"] * 4 * np.dtype("<i2").itemsize, "Track-point payload has the wrong byte length")
@@ -102,8 +106,8 @@ def main() -> None:
     check(offsets[0][0] == 0, "First track does not start at track point zero")
     check(offsets[-1][0] + offsets[-1][1] == meta["npts"], "Track offsets do not cover the track-point payload")
     check(min(cat["year"]) == 1950 and max(cat["year"]) == 2025, "Unexpected catalogue coverage")
-    check(len(meta.get("diagnostics", [])) == 56, "Expected 56 lazy ERA5 diagnostics")
-    check(len({item["key"] for item in meta["diagnostics"]}) == 56, "Diagnostic keys are not unique")
+    check(len(meta.get("diagnostics", [])) == 70, "Expected 70 lazy diagnostics")
+    check(len({item["key"] for item in meta["diagnostics"]}) == 70, "Diagnostic keys are not unique")
 
     packed = np.frombuffer(fixes, dtype="<i2")
     point_times = np.frombuffer(times, dtype="<i4")
@@ -113,15 +117,25 @@ def main() -> None:
         for start, length in offsets
     )
     check(has_bridged_gap, "Time asset does not preserve any tracker-bridged gaps")
+    check(all(np.all((np.diff(point_times[a:a+n])>0)&(np.diff(point_times[a:a+n])<=9)) for a,n in offsets), "Invalid track-time interval")
+    coordinates=np.frombuffer(gzip.decompress((ROOT/config["coordinates"]).read_bytes()),dtype="<f4")
+    check(len(coordinates)==2*meta["npts"],"Coordinate length mismatch")
+    check(len(set(cat["id"]))==meta["ntracks"] and len(set(cat["uid"]))==meta["ntracks"],"Duplicate track IDs/names")
+    check(sum(cat["core"])==12_944,"Core population changed")
+    check(all((cat["dom"][i]==5)==all(cat[k][i] is None for k in ("rk","rh","rw","rc","rn")) for i in range(meta["ntracks"])),"Missing regional values misclassified")
 
-    source = ROOT.parent / "catalogue-v6" / "full-r2" / "wd_v6-era5-1950-2025-fixes.parquet"
-    source_columns = ["track_id", "valid_time_utc", "lon", "lat", "track_vorticity_450_300hpa_t42", "precip_24hr_400km"]
-    source_fixes = pd.read_parquet(source, columns=source_columns).sort_values(["track_id", "valid_time_utc"], kind="stable", ignore_index=True)
+    source = ROOT.parent / "catalogue-v7" / "release-candidate" / "wd_v7-era5-1950-2025-track-points.parquet"
+    source_columns = ["track_id", "valid_time_utc", "lon", "lat", "vorticity", "precip_24hr_400km"]
+    source_fixes = pd.read_parquet(source, columns=source_columns)
+    source_fixes["_order"] = source_fixes.track_id.map(dict(zip(cat["id"],range(meta["ntracks"]))))
+    source_fixes = source_fixes.sort_values(["_order","valid_time_utc"],ignore_index=True)
     check(len(source_fixes) == meta["npts"], "Source/atlas track-point row conservation failed")
     samples = np.array([0, 1, 17, 12_345, 230_205, meta["npts"] - 1])
+    check(np.array_equal(coordinates[:meta["npts"]],source_fixes.lon.to_numpy(dtype="<f4")),"Filter longitudes differ from source")
+    check(np.array_equal(coordinates[meta["npts"]:],source_fixes.lat.to_numpy(dtype="<f4")),"Filter latitudes differ from source")
     check(np.array_equal(packed[samples], np.rint(source_fixes.loc[samples, "lon"].to_numpy() * 100).astype("<i2")), "Longitude round trip failed")
     check(np.array_equal(packed[meta["npts"] + samples], np.rint(source_fixes.loc[samples, "lat"].to_numpy() * 100).astype("<i2")), "Latitude round trip failed")
-    check(np.array_equal(packed[meta["npts"] * 2 + samples], np.rint(source_fixes.loc[samples, "track_vorticity_450_300hpa_t42"].to_numpy() * 10).astype("<i2")), "Vorticity round trip failed")
+    check(np.array_equal(packed[meta["npts"] * 2 + samples], np.rint(source_fixes.loc[samples, "vorticity"].to_numpy() * 10).astype("<i2")), "Vorticity round trip failed")
     source_time = pd.to_datetime(source_fixes["valid_time_utc"], utc=True)
     expected_hours = ((source_time - pd.Timestamp(meta["time_epoch"])) / pd.Timedelta(hours=1)).to_numpy(dtype="<i4")
     check(np.array_equal(point_times[samples], expected_hours[samples]), "Actual-time round trip failed")
@@ -148,7 +162,9 @@ def main() -> None:
         check(hashlib.sha256(path.read_bytes()).hexdigest() == descriptor["sha256"], f"Jet checksum mismatch: {descriptor['key']}")
     diagnostic_samples = [meta["diagnostics"][0], meta["diagnostics"][2], meta["diagnostics"][-1]]
     for descriptor in diagnostic_samples:
-        source_values = pd.read_parquet(source, columns=[descriptor["field"]])[descriptor["field"]].to_numpy(dtype="<f4")
+        sample_source = pd.read_parquet(source, columns=["track_id","valid_time_utc",descriptor["field"]])
+        sample_source["_order"] = sample_source.track_id.map(dict(zip(cat["id"],range(meta["ntracks"]))))
+        source_values = sample_source.sort_values(["_order","valid_time_utc"])[descriptor["field"]].to_numpy(dtype="<f4")
         values = np.frombuffer(gzip.decompress((ROOT / descriptor["file"]).read_bytes()), dtype="<f4")
         check(np.allclose(values[samples], source_values[samples], equal_nan=True), f"Diagnostic round trip failed: {descriptor['key']}")
 
@@ -165,10 +181,10 @@ def main() -> None:
     check("summary.flatMap((row) => [row.q1, row.q3])" in app and "reference.flatMap(row => [row.q1, row.q3])" in app, "Subset/reference evolution axes do not fit the plotted interquartile ranges")
     check("axes fitted to the filtered subset" not in app, "Subset evolution still exposes axis-implementation text")
     check('ERA5 · 3-hourly Lagrangian catalogue · 1950–2025' not in html, "Removed masthead strapline remains")
-    for name in ('analysis-core', 'atlas-science', 'atlas-reanalyses', 'atlas-composites', 'atlas-forecast', 'atlas-climate-change'):
+    for name in ('geography', 'analysis-core', 'atlas-science', 'atlas-reanalyses', 'atlas-composites', 'atlas-forecast', 'atlas-climate-change'):
         check(f'assets/{name}.js' in html, f'Missing extension: {name}')
     check(config.get('forecastBase') and config.get('compositeBase'), 'Forecast/composite publication URLs are not configured')
-    matches=json.loads(gzip.decompress((ROOT/'assets/wd-reanalysis-matches-v1.json.gz').read_bytes()))
+    matches=json.loads(gzip.decompress((ROOT/config['reanalyses']).read_bytes()))
     check(matches['track_ids']==cat['id'], 'Reanalysis matching catalogue order mismatch')
     for name, source in matches['sources'].items():
         check(len({r['era5_track_id'] for r in source['matches']})==len(source['matches']), f'Duplicate ERA5 matches: {name}')

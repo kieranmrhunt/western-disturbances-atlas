@@ -4,3 +4,4 @@ hpc-logs/
 .forecast-cache/
 forecast-data/
 .composite-runs/
+.v7-products/

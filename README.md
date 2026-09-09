@@ -1,6 +1,6 @@
 # Western Disturbance Atlas
 
-Static GitHub Pages atlas for the corrected ERA5-derived WD v6 catalogue: 16,298 western-disturbance trajectories and 460,411 three-hourly track points from 1950–2025.
+Static GitHub Pages atlas for the ERA5-derived WD v7 catalogue: 49,200 regional candidate trajectories and 1,493,423 three-hourly track points from 1950–2025.
 
 The interface shares the visual language and main workflow of the [Monsoon Low-Pressure System Atlas](https://kieranmrhunt.github.io/monsoon-low-atlas/) while retaining WD-specific diagnostics and removing LPS-specific concepts.
 
@@ -12,16 +12,22 @@ The interface shares the visual language and main workflow of the [Monsoon Low-P
 - Year controls use calendar years; exact date ranges select a particular winter. The configurable crossing marker defaults to 60°E, uses the first linearly interpolated crossing and does not realign trajectories.
 - Intensity is track-centred relative vorticity averaged through the 450–300 hPa layer, spectrally truncated to T42, in 10⁻⁵ s⁻¹. This is the upper-tropospheric WD diagnostic; the site does not substitute 850-hPa LPS vorticity.
 - Precipitation is the catalogue's track-centred or regional 24 h diagnostic in mm.
-- Vorticity, precipitation and path-length percentiles are fixed against the complete 16,298-track catalogue. Filtering does not rescale them.
+- Vorticity, precipitation and path-length percentiles are fixed against the complete 49,200-track catalogue. Filtering does not rescale them.
 - Density counts each trajectory once per one-degree grid cell. Density remains selectable through a geographical segment index built from the underlying trajectories.
 - The five precipitation-impact boxes are transparent analysis regions, not administrative boundaries. “Dominant” is the box with the largest peak 24 h precipitation for a trajectory.
 - Genesis locations use the four winter k-means clusters from Figure 5 of the 2025 WD review (North Atlantic jet stream, Alps/Northern Europe, Mediterranean and Zagros), with distant points assigned to `Other` using the original clusters' 99.5% distance envelopes.
 - Eight exploratory route archetypes use standardised longitude and latitude interpolated at nine elapsed-life fractions. Multi-WD spells link systems in the same winter and dominant precipitation region when the next genesis occurs within 72 hours of the latest lysis.
-- Catalogue analogues are ranked principally by standardised full-trajectory shape, with smaller genesis-month, lifetime, intensity and precipitation penalties.
+- Catalogue analogues are ranked principally by standardised full-trajectory shape, with smaller lifetime, intensity, path-length and precipitation penalties, across different years.
 - ERA5-derived catalogue extremes are internal diagnostics, not authoritative meteorological records.
 - The selected-track slider and evolution chart both follow actual catalogue track-point times. Independent gridded ERA5 backgrounds provide contemporaneous 350-hPa vorticity, trailing 24 h precipitation, 500-hPa wind, temperature and specific humidity, and mean-sea-level pressure.
 
 The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSISO filters, cyclone names and Indian-state precipitation fills.
+
+## Geographic selection
+
+The base catalogue retains trajectories lasting ≥24 h, with peak T42 vorticity ≥2 × 10⁻⁵ s⁻¹ and a track point in 55–90°E, 20–50°N. The atlas offers entry into a user-defined box, a latitude band east of a chosen longitude, an eastward meridian crossing, or no further entry requirement. Tests use float32 coordinates along complete trajectories, interpolate gaps up to 9 h, and include box boundaries.
+
+Defaults are DJFM genesis, lifetime ≥48 h, an eastward 70°E crossing at 20–50°N, and screened track quality. The optional quality screen requires ≥80% temporal coverage, ≤20% ambiguous links and reverse-check disagreements, and no detector-boundary/source-time censoring. With all months, this gives 12,944 tracks. Removing entry and quality restrictions and setting lifetime to 24 h exposes all 49,200 tracks. The same rules apply to counts, plots, exports, saved links and pinned references.
 
 ## Features
 
@@ -30,7 +36,7 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 - Individual tracks by default, plus unique-track density, genesis, lysis and selected-track-only layers; every data layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order. The selected trajectory is black.
 - Contemporaneous ERA5 overlays for positive 350-hPa vorticity, trailing 24 h precipitation, 500-hPa wind speed, temperature and specific humidity, and mean-sea-level pressure. New archive-wide fields stay disabled until their validation manifest exists.
 - Per-track dossiers, previous/next navigation, nearest trajectory analogues, actual-UTC track-point stepping, and accessible lifecycle plots. Selected-system evolution supports three line variables with independent axes while keeping precipitation bars visible; subset evolution supports six small multiples whose axes fit the filtered interquartile range, with the all-catalogue median retained as a reference.
-- Selected-system time–pressure sections of vorticity and other ERA5 fields at 850, 700 and 500 hPa, first-meridian-crossing markers, daily 200-hPa jet relationship diagnostics, and lazy lifetime precipitation footprints. Thirty-four track points on 29–31 October 2023 are absent from the jet source and remain unavailable.
+- Selected-system time–pressure sections of vorticity at 850, 700, 500, 450, 400, 350 and 300 hPa; other ERA5 fields at 850, 700 and 500 hPa, first-meridian-crossing markers, daily 200-hPa jet relationship diagnostics, and lazy lifetime precipitation footprints. Times absent from the jet source, including 29–31 October 2023, remain unavailable.
 - Genesis-month NOAA PSL ONI, NAO, AO and PNA filters plus daily BOM RMM MJO phase. These are regime descriptors rather than causal attribution.
 - Filter-aware annual, seasonal, impact-region and genesis-density climatologies.
 - Filter-aware catalogue extremes.
@@ -152,21 +158,22 @@ Then open `http://localhost:8000/`.
 
 ## Asset layout
 
-- `assets/wd-atlas-catalogue-v6.json.gz`: catalogue metadata, track summaries, track-point offsets and evolution-field descriptors.
-- `assets/wd-atlas-fixes-v6.i16.gz`: concatenated track-point `int16` longitude ×100, latitude ×100, vorticity ×10 and precipitation ×100 arrays.
-- `assets/wd-atlas-times-v6.i32.gz`: actual track-point times as integer hours since 1950-01-01 UTC, preserving gaps bridged by the tracker.
-- `assets/wd-atlas-diag-v6-*.f32.gz`: one `float32` per track point per diagnostic file, fetched only when selected.
-- `assets/wd-atlas-routes-v1.json.gz`: eight trajectory-shape archetypes and track assignments.
-- `assets/wd-atlas-climate-v1.json.gz`: genesis-time NOAA and BOM regime values and categories.
-- `assets/wd-atlas-jet-v1.json`: daily 200-hPa jet diagnostic definitions and availability.
+- `assets/wd-atlas-catalogue-v7.json.gz`: catalogue metadata, track summaries, track-point offsets and evolution-field descriptors.
+- `assets/wd-atlas-points-v7.i16.gz`: concatenated track-point `int16` longitude ×100, latitude ×100, vorticity ×10 and precipitation ×100 arrays.
+- `assets/wd-atlas-times-v7.i32.gz`: actual track-point times as integer hours since 1950-01-01 UTC, preserving gaps bridged by the tracker.
+- `assets/wd-atlas-diag-v7-*.f32.gz`: one `float32` per track point per diagnostic file, fetched only when selected.
+- `assets/wd-atlas-routes-v7.json.gz`: eight trajectory-shape archetypes and track assignments.
+- `assets/wd-atlas-climate-v7.json.gz`: genesis-time NOAA and BOM regime values and categories.
+- `assets/wd-atlas-jet-v7.json`: daily 200-hPa jet diagnostic definitions and availability.
 - `assets/map-context.js`: quantised Natural Earth coastline and national-border polylines.
-- `assets/atlas-build-manifest.json`: byte counts and SHA-256 checksums.
+- `assets/wd-atlas-coordinates-v7.f32.gz`: higher-precision longitude/latitude arrays for geographic selection.
+- `assets/atlas-build-manifest.json`: source and asset SHA-256 checksums.
 - `assets/atlas.css`: shared monsoon-atlas design language plus WD additions.
 - `assets/atlas-app.js`: dependency-free atlas application.
 
 Modern browsers decompress the gzip assets with `DecompressionStream`.
 
-## Weather archive
+## Existing weather archive and v6 maintenance
 
 `data/wd-weather-months.csv` lists every catalogue month from January 1950 through December 2025. Build a single smoke-test month with:
 
@@ -260,16 +267,41 @@ time range, source files, grid, shape and checksum; a year is not published if
 any expected track is absent or invalid. The earlier monthly-contribution
 scripts remain only for provenance of already staged intermediate files.
 
-## Rebuilding the catalogue assets
+## v7 track-dependent products
 
-Build the WD-v6 browser assets from the validated Parquet catalogue with:
+The gridded weather backgrounds are unchanged: they do not depend on track IDs.
+Lifetime footprints and storm-centred composites are rebuilt for the v7 positions
+and timestamps and published under `atlas-impact-v7` and `atlas-composites-v7`.
+Earlier versioned products are retained.
 
 ```bash
-python scripts/build_catalogue_v6.py
-python scripts/build_route_archetypes.py
-python scripts/build_climate_indices.py
-sbatch scripts/build_jet_diagnostics.slurm
+python scripts/build_impact_v7.py --prepare
+sbatch --array=0-911 scripts/build_impact_v7.slurm
+# After all monthly parts finish:
+python scripts/build_impact_v7.py --assemble
+
+python scripts/build_composites_v7.py --prepare
+# One task per WD, in arrays of at most 10,000; final array has 9,200 tasks.
+sbatch --array=0-9999 scripts/build_composites_v7.slurm 0
+# Repeat with offsets 10000, 20000, 30000; then 0-9199 with offset 40000.
+python scripts/build_composites_v7.py --finalize
+```
+
+Outputs are staged locally under `.v7-products/`. Publish data before its
+inventory. The footprint assembler requires complete hourly coverage for every
+track; composite inventories explicitly identify the available systems.
+
+## Rebuilding the catalogue assets
+
+Build the WD-v7 browser assets from the validated Parquet catalogue with:
+
+```bash
+python scripts/build_catalogue_v7.py
+sbatch scripts/refresh_v7_context.slurm
+# After the context job completes:
+python scripts/refresh_asset_manifest_v7.py
 python scripts/validate_atlas.py
+node scripts/test_geography.cjs
 ```
 
 The builder enforces row, key and per-track count conservation and writes deterministic gzip files plus a SHA-256 manifest.
@@ -294,4 +326,4 @@ Reapply the WD additions at the end of `assets/atlas.css` after importing a newe
 
 ## Provenance
 
-The atlas follows the versioned dataset under the [Western disturbance dataset concept DOI](https://doi.org/10.5281/zenodo.18328597). A new WD-v6 version is prepared as a Zenodo draft for author review; the concept DOI continues to resolve to the latest published version until that draft is published.
+The atlas currently uses the v7 catalogue. Earlier dataset releases remain under the [Western disturbance dataset concept DOI](https://doi.org/10.5281/zenodo.18328597); this atlas refresh does not publish a new Zenodo version.
