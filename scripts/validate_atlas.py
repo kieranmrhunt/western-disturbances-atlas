@@ -162,8 +162,23 @@ def main() -> None:
     check('bindDateInput("#wdDateMin", "dateMin")' in app and "Preserve that partial edit" in app, "Date inputs do not preserve partial keyboard edits")
     check("function loadDiagnostic(metric)" in app and "diagnosticArrays" in app, "Lazy evolution diagnostics are not wired")
     check("fixTimeMillis(index, fix)" in app, "Actual track-point times are not used by the application")
-    check("metricRange(summary.flatMap((row) => [row.q1, row.q3]), false)" in app, "Subset evolution axes do not fit the plotted interquartile range")
+    check("summary.flatMap((row) => [row.q1, row.q3])" in app and "reference.flatMap(row => [row.q1, row.q3])" in app, "Subset/reference evolution axes do not fit the plotted interquartile ranges")
     check("axes fitted to the filtered subset" not in app, "Subset evolution still exposes axis-implementation text")
+    check('ERA5 · 3-hourly Lagrangian catalogue · 1950–2025' not in html, "Removed masthead strapline remains")
+    for name in ('analysis-core', 'atlas-science', 'atlas-reanalyses', 'atlas-composites', 'atlas-forecast', 'atlas-climate-change'):
+        check(f'assets/{name}.js' in html, f'Missing extension: {name}')
+    check(config.get('forecastBase') and config.get('compositeBase'), 'Forecast/composite publication URLs are not configured')
+    matches=json.loads(gzip.decompress((ROOT/'assets/wd-reanalysis-matches-v1.json.gz').read_bytes()))
+    check(matches['track_ids']==cat['id'], 'Reanalysis matching catalogue order mismatch')
+    for name, source in matches['sources'].items():
+        check(len({r['era5_track_id'] for r in source['matches']})==len(source['matches']), f'Duplicate ERA5 matches: {name}')
+        check(len({r['source_track_id'] for r in source['matches']})==len(source['matches']), f'Duplicate source matches: {name}')
+    projection=json.loads(gzip.decompress((ROOT/'assets/wd-climate-change-v1.json.gz').read_bytes()))
+    check(projection['schema']=='wd-climate-change-v1' and len(projection['models'])>0, 'Missing audited climate-change data')
+    for model in projection['models']:
+        check(len(model['months'])==240, f'Climate window length: {model["model"]}')
+        for month in model['months']:
+            check(month['count'] is not None if month['complete'] else month['count'] is None, 'Incomplete CMIP5 month masquerades as zero')
     referenced_ids = set(re.findall(r'\$\("#([A-Za-z][\w-]*)"\)', app))
     missing_ids = sorted(referenced_ids - set(parser.ids) - DYNAMIC_IDS)
     check(not missing_ids, f"JavaScript references missing HTML IDs: {', '.join(missing_ids)}")

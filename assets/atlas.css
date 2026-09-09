@@ -553,3 +553,20 @@ body { background: #f7f1e2; }
 	.wd-filter-metrics { grid-template-columns: 1fr; }
 	.wd-region-row { grid-template-columns: 92px 1fr auto; }
 }
+/* September 2026 comparisons: inherit the existing atlas tokens and layout. */
+#western-disturbances-atlas .wd-science-charts { margin-top: 18px; }
+#western-disturbances-atlas .wd-scatter-chart { height: 360px; }
+#western-disturbances-atlas .wd-forecast-map { display: block; width: 100%; height: 510px; touch-action: none; cursor: grab; }
+#western-disturbances-atlas #wdForecastEvolution { touch-action: none; }
+#western-disturbances-atlas #wdForecastLead { flex: 1 1 220px; width: auto; }
+#western-disturbances-atlas #wdForecastStatus[data-tone="flag"] { color: #8f2938; font-weight: 600; }
+#western-disturbances-atlas #wdScatterData, #western-disturbances-atlas #wdForecastData { max-height: 340px; overflow: auto; }
+#western-disturbances-atlas .wd-science-charts .mla-field { min-width: 0; }
+#western-disturbances-atlas #wdScatterX, #western-disturbances-atlas #wdScatterY { max-width: 320px; }
+@media (max-width: 650px) {
+  #western-disturbances-atlas .wd-forecast-map { height: 340px; }
+  #western-disturbances-atlas .wd-scatter-chart { height: 300px; }
+  #western-disturbances-atlas #wdScatterX, #western-disturbances-atlas #wdScatterY { max-width: 100%; }
+}
+#western-disturbances-atlas .wd-composite-pair { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,330px),1fr)); gap: 18px; }
+#western-disturbances-atlas .wd-composite-card { margin: 15px 0; }

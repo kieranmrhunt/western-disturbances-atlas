@@ -129,9 +129,12 @@
 	const impactErrors = new Map();
 	let impactAvailableYears = new Set();
 	let impactArchiveStatus = "unavailable";
+	let science;
+	const timeAnchorCache = new Map();
 
 	const state = {
 		timeMode: "years",
+		monthMode: "genesis",
 		months: new Set(SEASONS.djfm),
 		regions: new Set(),
 		genesisRegions: new Set(),
@@ -225,6 +228,8 @@
 		state.yearMax = Math.max(...CAT.year);
 		readUrlState();
 		buildFilterControls();
+		science = window.createWDScience(scienceInterface());
+		science.initialise();
 		bindInterface();
 		setupMap();
 		$("#wdMethodTracks").textContent = META.ntracks.toLocaleString();
@@ -436,6 +441,7 @@
 	}
 
 	function bindInterface() {
+		$("#wdMonthMode").addEventListener("change", (event) => { state.monthMode = event.target.value; syncControlsFromState(); applyFilters(); });
 		$("#wdDownloadFixes").disabled = selected < 0;
 		$$('[role="tab"][data-tab]').forEach((button) => {
 			button.addEventListener("click", () => switchTab(button.dataset.tab));
@@ -800,6 +806,7 @@
 	}
 
 	function resetFilters() {
+		state.monthMode = "genesis";
 		state.timeMode = "years";
 		state.months = new Set(SEASONS.djfm);
 		state.regions.clear();
@@ -822,10 +829,11 @@
 	}
 
 	function syncControlsFromState() {
+		$("#wdMonthMode").value = state.monthMode;
 		$("#wdSearch").value = state.query;
 		$("#wdYearFields").hidden = state.timeMode !== "years";
 		$("#wdDateFields").hidden = state.timeMode !== "dates";
-		$("#wdPeriodLabel").textContent = state.timeMode === "dates" ? "Track active dates" : "Genesis years";
+		$("#wdPeriodLabel").textContent = state.timeMode === "dates" ? "Track active dates" : ({genesis:"Genesis years",active:"Active years",peakIntensity:"Peak vorticity years",peakPrecipitation:"Peak precipitation years"}[state.monthMode]);
 		$("#wdTimeModeYears").setAttribute("aria-pressed", String(state.timeMode === "years"));
 		$("#wdTimeModeDates").setAttribute("aria-pressed", String(state.timeMode === "dates"));
 		for (const input of [$("#wdYearMin"), $("#wdYearMax")]) {
@@ -895,8 +903,8 @@
 	}
 
 	function filterContext() {
-		const minimumActive = state.timeMode === "dates" ? Date.parse(`${state.dateMin}T00:00:00Z`) : NaN;
-		const maximumActive = state.timeMode === "dates" ? Date.parse(`${state.dateMax}T23:59:59.999Z`) : NaN;
+		const minimumActive = state.timeMode === "dates" ? Date.parse(`${state.dateMin}T00:00:00Z`) : Date.UTC(state.yearMin, 0, 1);
+		const maximumActive = state.timeMode === "dates" ? Date.parse(`${state.dateMax}T23:59:59.999Z`) : Date.UTC(state.yearMax + 1, 0, 1) - 1;
 		const query = state.query.toLowerCase();
 		const dateQuery = /^\d{4}-\d{2}-\d{2}$/.test(query) ? query : "";
 		const compactQuery = query.replace(/[^a-z0-9]/g, "");
@@ -904,10 +912,8 @@
 	}
 
 	function trackMatchesFilters(index, excludedFacet, context) {
-		if (excludedFacet !== "months" && !state.months.has(CAT.month[index])) return false;
-		if (state.timeMode === "dates") {
-			if (lysisMillis(index) < context.minimumActive || genesisMillis(index) > context.maximumActive) return false;
-		} else if (CAT.year[index] < state.yearMin || CAT.year[index] > state.yearMax) return false;
+		if (excludedFacet !== "months" && !trackMonths(index, context).some(month => state.months.has(month))) return false;
+		if (!matchesTimeWindow(index, context)) return false;
 		if (CAT.pct_int[index] < state.intensityMin || CAT.pct_pr[index] < state.rainMin) return false;
 		if (CAT.len_km[index] < state.lengthMin || CAT.dur[index] < state.durationMin) return false;
 		if (excludedFacet !== "regions" && state.regions.size && !state.regions.has(CAT.dom[index])) return false;
@@ -938,7 +944,7 @@
 		const lysisRegionCounts = Array(LYSIS_REGIONS.length).fill(0);
 		const routeCounts = Array(routeDefinitions.length).fill(0);
 		for (let index = 0; index < META.ntracks; index += 1) {
-			if (trackMatchesFilters(index, "months", context)) monthCounts[CAT.month[index] - 1] += 1;
+			if (trackMatchesFilters(index, "months", context)) trackMonths(index, context).forEach(month => monthCounts[month - 1] += 1);
 			if (trackMatchesFilters(index, "regions", context)) regionCounts[CAT.dom[index]] += 1;
 			if (trackMatchesFilters(index, "genesisRegions", context)) genesisRegionCounts[genesisRegionByTrack[index]] += 1;
 			if (trackMatchesFilters(index, "lysisRegions", context)) lysisRegionCounts[lysisRegionByTrack[index]] += 1;
@@ -1020,6 +1026,7 @@
 			button.tabIndex = active ? 0 : -1;
 		});
 		$$('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== tab; });
+		$("#wdFilters").hidden = ["forecast", "climate-change"].includes(tab);
 		renderActiveTab();
 		if (options.updateUrl !== false) scheduleUrlUpdate();
 	}
@@ -1051,6 +1058,7 @@
 		} else if (activeTab === "extremes") {
 			renderExtremes();
 		}
+		science?.render(activeTab);
 	}
 
 	function setupMap() {
@@ -1535,6 +1543,7 @@
 		if (!context) return;
 		context.clearRect(0, 0, map.width, map.height);
 		drawMapTimeFocus(context);
+		if (window.WD_ATLAS) window.WDReanalyses?.draw(window.WD_ATLAS);
 		if (hovered >= 0 && hovered !== selected) drawHighlightedTrack(context, hovered, "#fffaf0", 3, false);
 		if (selected >= 0) {
 			context.save();
@@ -1814,6 +1823,7 @@
 		drawVerticalChart();
 		drawImpactFootprint();
 		if (options.fit) fitSelectedTrack(index);
+		if (changed) window.WDComposites?.selectionChanged(window.WD_ATLAS);
 		if (options.updateUrl !== false) scheduleUrlUpdate();
 	}
 
@@ -1832,6 +1842,7 @@
 		drawVerticalChart();
 		drawImpactFootprint();
 		updateWeatherControls();
+		window.WDComposites?.selectionChanged(window.WD_ATLAS);
 		scheduleUrlUpdate();
 	}
 
@@ -2075,12 +2086,12 @@
 				continue;
 			}
 			const summary = profileSummary(filtered, metric);
-			let reference = catalogueProfileCache.get(metric);
+			let reference = science?.referenceProfile(metric) || catalogueProfileCache.get(metric);
 			if (!reference) { reference = profileSummary(Array.from({ length: META.ntracks }, (_, index) => index), metric); catalogueProfileCache.set(metric, reference); }
 			drawProfilePanel(chart, summary, reference, descriptor, metric);
-			tables.push(`<h4>${escapeHtml(descriptor.label)}</h4>${accessibleTable(["Life fraction (%)", "Systems", "Lower quartile", "Median", "Upper quartile", "All-catalogue median"], summary.map((row, index) => [row.life, row.n, formatNumber(row.q1, descriptor.decimals), formatNumber(row.median, descriptor.decimals), formatNumber(row.q3, descriptor.decimals), formatNumber(reference[index].median, descriptor.decimals)]))}`);
+			tables.push(`<h4>${escapeHtml(descriptor.label)}</h4>${accessibleTable(["Life fraction (%)", "Systems", "Lower quartile", "Median", "Upper quartile", science?.hasReference() ? "Pinned-reference median" : "All-catalogue median"], summary.map((row, index) => [row.life, row.n, formatNumber(row.q1, descriptor.decimals), formatNumber(row.median, descriptor.decimals), formatNumber(row.q3, descriptor.decimals), formatNumber(reference[index].median, descriptor.decimals)]))}`);
 		}
-		$("#wdProfileReadout").textContent = `${filtered.length.toLocaleString()} systems`;
+		$("#wdProfileReadout").textContent = `${filtered.length.toLocaleString()} systems${science?.referenceLabel() ? ` · Reference: ${science.referenceLabel()}` : ""}`;
 		$("#wdProfileData").innerHTML = tables.join("");
 	}
 
@@ -2111,7 +2122,8 @@
 
 	function drawProfilePanel(chart, summary, reference, descriptor, metric) {
 		const { context, width, height } = chart;
-		const range = metricRange(summary.flatMap((row) => [row.q1, row.q3]), false);
+		const pinned = Boolean(science?.referenceLabel());
+		const range = metricRange([...summary.flatMap((row) => [row.q1, row.q3]), ...(pinned ? reference.flatMap(row => [row.q1, row.q3]) : [])], false);
 		const plot = chartFrame(context, width, height, { left: 52, right: 22, top: 18, bottom: 38, yMin: range.minimum, yMax: range.maximum, yLabel: descriptor.yLabel, xLabel: "Life fraction (%)" });
 		const binCount = summary.length;
 		const x = (index) => plot.left + index / (binCount - 1) * plot.width;
@@ -2125,6 +2137,7 @@
 		const colour = SERIES_COLOURS[profileMetrics.indexOf(metric) % SERIES_COLOURS.length];
 		context.fillStyle = withAlpha(colour, 0.19);
 		context.fill();
+		if (pinned) science.drawReferenceBand(context, reference, x, y);
 		context.save(); context.setLineDash([5, 4]); drawLineSeries(context, reference.map((row) => row.median), x, y, "rgba(40,33,25,.66)", false, plot); context.restore();
 		drawLineSeries(context, summary.map((row) => row.median), x, y, colour, false, plot);
 		context.restore();
@@ -2258,9 +2271,11 @@
 		drawRegionChart();
 		drawGenesisChart();
 		drawSpellChart();
+		science?.drawClimatology();
 	}
 
 	function drawAnnualChart() {
+		if (science) { science.drawAnnual(); return; }
 		const chart = prepareCanvas($("#wdAnnualChart"));
 		if (!chart) return;
 		const years = [];
@@ -2291,12 +2306,16 @@
 		const counts = Array(12).fill(0);
 		const intensity = Array(12).fill(0);
 		for (const index of filtered) {
-			const month = CAT.month[index] - 1;
-			counts[month] += 1;
-			intensity[month] += CAT.pk_int[index];
+			for (const monthNumber of trackMonths(index, filterContext())) {
+				if (!state.months.has(monthNumber)) continue;
+				const month = monthNumber - 1;
+				counts[month] += 1;
+				intensity[month] += CAT.pk_int[index];
+			}
 		}
-		const means = counts.map((count, month) => count ? intensity[month] / count : 0);
-		const plot = chartFrame(chart.context, chart.width, chart.height, { left: 48, right: 44, top: 23, bottom: 40, yMax: niceMaximum(counts), yLabel: "Genesis systems", xLabel: "Genesis month" });
+		const means = counts.map((count, month) => count ? intensity[month] / count : null);
+		const monthLabel = $("#wdMonthMode").selectedOptions[0].textContent;
+		const plot = chartFrame(chart.context, chart.width, chart.height, { left: 48, right: 44, top: 23, bottom: 40, yMax: niceMaximum(counts), yLabel: "Systems", xLabel: monthLabel });
 		const barWidth = plot.width / 12;
 		counts.forEach((value, month) => {
 			const height = value / plot.yMax * plot.height;
@@ -2314,7 +2333,7 @@
 		chart.context.textAlign = "right";
 		chart.context.fillStyle = css("--mla-madder", "#aa3d2d");
 		chart.context.fillText(`mean ζ · max ${Math.max(...means).toFixed(1)}`, chart.width - 8, 15);
-		$("#wdMonthData").innerHTML = accessibleTable(["Month", "Genesis systems", "Mean peak vorticity (10^-5 s^-1)"], MONTHS.map((month, index) => [month, counts[index], means[index].toFixed(2)]));
+		$("#wdMonthData").innerHTML = accessibleTable([monthLabel, "Systems", "Mean peak vorticity (10^-5 s^-1)"], MONTHS.map((month, index) => [month, counts[index], means[index] == null ? "—" : means[index].toFixed(2)]));
 	}
 
 	function drawRegionChart() {
@@ -2435,6 +2454,7 @@
 
 	function renderExtremes() {
 		if (!CAT) return;
+		science?.drawExtremes();
 		const metric = $("#wdExtremeMetric").value;
 		if (metric.startsWith("diag:")) {
 			const key = metric.slice(5), descriptor = EVOLUTION_METRICS[key];
@@ -2445,7 +2465,7 @@
 			}
 			diagnosticTrackSummary(key);
 		}
-		const ordered = filtered.slice().sort((a, b) => extremeDirection(metric) * (extremeValue(b, metric) - extremeValue(a, metric)) || CAT.id[a] - CAT.id[b]);
+		const ordered = filtered.filter(index => Number.isFinite(extremeValue(index, metric))).sort((a, b) => extremeDirection(metric) * (extremeValue(b, metric) - extremeValue(a, metric)) || CAT.id[a] - CAT.id[b]);
 		const leaders = ordered.slice(0, 3);
 		$("#wdRecordCards").innerHTML = leaders.map((index, rank) => `<article class="mla-card mla-record" data-index="${index}"><span class="mla-eyebrow">Rank ${rank + 1}</span><h3><button class="mla-row-button" type="button">${trackName(index)}</button></h3><p>${formatGenesis(index)} · ${REGION_LONG[CAT.dom[index]]}</p><strong>${formatExtreme(index, metric)}</strong></article>`).join("") || '<p>No systems match the current filters.</p>';
 		$$('[data-index]', $("#wdRecordCards")).forEach((card) => card.addEventListener("click", () => { selectTrack(Number(card.dataset.index), { fit: true }); switchTab("explore"); }));
@@ -2602,8 +2622,10 @@
 	function serialisableFilters() {
 		return {
 			time_mode: state.timeMode,
+			month_definition: state.monthMode,
+			selected_months: [...state.months].sort((a, b) => a - b),
 			active_date_interval: state.timeMode === "dates" ? [state.dateMin, state.dateMax] : null,
-			genesis_months: [...state.months].sort((a, b) => a - b),
+			genesis_months: state.monthMode === "genesis" ? [...state.months].sort((a, b) => a - b) : null,
 			genesis_year: state.timeMode === "years" ? [state.yearMin, state.yearMax] : null,
 			genesis_regions: [...state.genesisRegions].sort((a, b) => a - b).map((region) => GENESIS_REGIONS[region].longLabel),
 			lysis_longitude_sectors: [...state.lysisRegions].sort((a, b) => a - b).map((region) => LYSIS_REGIONS[region].label),
@@ -2647,6 +2669,7 @@
 
 	function readUrlState() {
 		const params = new URLSearchParams(window.location.search);
+		if (["genesis", "active", "peakIntensity", "peakPrecipitation"].includes(params.get("monthMode"))) state.monthMode = params.get("monthMode");
 		if (params.has("months")) {
 			const months = params.get("months").split(",").map(Number).filter((month) => month >= 1 && month <= 12);
 			if (months.length) state.months = new Set(months);
@@ -2691,7 +2714,7 @@
 		if (params.get("weathertracks") === "1") state.hideTracksWithWeather = false;
 		if (params.has("cross")) state.crossingLongitude = clamp(Number(params.get("cross")) || 60, -20, 145);
 		if (params.has("at")) setMapTimeFocus(params.get("at"), { silent: true });
-		if (["explore", "climatology", "extremes", "data"].includes(params.get("tab"))) activeTab = params.get("tab");
+		if (["explore", "forecast", "climate-change", "climatology", "extremes", "data"].includes(params.get("tab"))) activeTab = params.get("tab");
 		if (params.has("selected")) selected = idToIndex.get(params.get("selected")) ?? -1;
 		const pointParameter = params.has("point") ? params.get("point") : params.get("fix");
 		if (selected >= 0 && pointParameter != null) focusFix = clamp(Number(pointParameter) || 0, 0, OFF[selected][1] - 1);
@@ -2710,8 +2733,11 @@
 	}
 
 	function updateUrl() {
+		// Extension parameters are preserved by their own compact state writer.
 		if (!DATA) return;
 		const params = new URLSearchParams();
+		for (const [key, value] of new URLSearchParams(location.search)) if (/^(f_|cc_|reference$|extreme$|scatter[XY]$|annualMeasure$|reanalysis$)/.test(key)) params.set(key, value);
+		if (state.monthMode !== "genesis") params.set("monthMode", state.monthMode);
 		params.set("months", [...state.months].sort((a, b) => a - b).join(","));
 		if (state.timeMode === "dates") params.set("dates", `${state.dateMin},${state.dateMax}`);
 		else if (state.yearMin !== catalogueYearMinimum() || state.yearMax !== catalogueYearMaximum()) params.set("years", `${state.yearMin},${state.yearMax}`);
@@ -2751,6 +2777,60 @@
 		} catch (_) {
 			window.prompt("Copy this atlas view link", window.location.href);
 		}
+	}
+
+	function timeAnchor(index) {
+		if (state.monthMode === "genesis" || state.monthMode === "active") return genesisMillis(index);
+		if (!timeAnchorCache.has(state.monthMode)) {
+			const values = new Float64Array(META.ntracks); values.fill(NaN);
+			for (let i = 0; i < META.ntracks; i++) {
+				const [start, length] = OFF[i], source = state.monthMode === "peakIntensity" ? PVORT : PRAIN;
+				let best = -Infinity;
+				for (let j = 0; j < length; j++) if (source[start + j] !== -32768 && source[start + j] > best) { best = source[start + j]; values[i] = fixTimeMillis(i, j); }
+			}
+			timeAnchorCache.set(state.monthMode, values);
+		}
+		return timeAnchorCache.get(state.monthMode)[index];
+	}
+
+	function matchesTimeWindow(index, context = filterContext()) {
+		if (state.timeMode === "dates" || state.monthMode === "active") return lysisMillis(index) >= context.minimumActive && genesisMillis(index) <= context.maximumActive;
+		const anchor = timeAnchor(index);
+		return Number.isFinite(anchor) && anchor >= context.minimumActive && anchor <= context.maximumActive;
+	}
+
+	function trackMonths(index, context = filterContext()) {
+		if (state.monthMode !== "active") { const anchor = timeAnchor(index); return Number.isFinite(anchor) ? [new Date(anchor).getUTCMonth() + 1] : []; }
+		const start = Math.max(genesisMillis(index), context.minimumActive), end = Math.min(lysisMillis(index), context.maximumActive);
+		if (start > end) return [];
+		return [...new Set(window.WDAnalysis.periods(start, end).map(p => p.month))];
+	}
+
+	function scienceInterface() {
+		const api = {
+			mapContext: {coast: window.WD_COAST_LINES.map(line => Array.from({length: line.length / 2}, (_, i) => [line[i * 2] / 10, line[i * 2 + 1] / 10])), borders: window.WD_BORDER_LINES.map(line => Array.from({length: line.length / 2}, (_, i) => [line[i * 2] / 10, line[i * 2 + 1] / 10]))},
+			get cat() { return CAT; }, get meta() { return META; }, get off() { return OFF; },
+			get filtered() { return filtered; }, get selected() { return selected; }, get tab() { return activeTab; },
+			get climate() { return CLIMATE; }, get genesisGroups() { return genesisRegionByTrack; }, get lysisGroups() { return lysisRegionByTrack; },
+			get routes() { return routeByTrack; }, get routeDefinitions() { return routeDefinitions; },
+			state, config: CONFIG, genesisDefinitions: GENESIS_REGIONS, lysisDefinitions: LYSIS_REGIONS, metrics: EVOLUTION_METRICS,
+			prepareCanvas, chartFrame, drawLineSeries, drawEmptyChart, accessibleTable, escapeHtml, metricRange, formatAxis,
+			trackName, trackPoints, genesisMillis, lysisMillis, timeAnchor, trackMonths, matchesTimeWindow, filterContext,
+			extremeValue, extremeLabel, formatExtreme, loadDiagnostic, metricIsReady, profileSummary, drawProfileChart,
+			applyFilters, renderActiveTab, selectTrack, switchTab, fetchInflated, drawMap, projectX, projectY, map,
+			downloadBlob, csvText, serialisableFilters, scheduleUrlUpdate,
+			snapshot() { return JSON.parse(JSON.stringify(state, (key, value) => value instanceof Set ? [...value] : value)); },
+			indicesForSnapshot(snapshot) {
+				const previous = {...state};
+				try {
+					for (const key of Object.keys(state)) if (Object.hasOwn(snapshot, key)) state[key] = previous[key] instanceof Set ? new Set(snapshot[key]) : snapshot[key];
+					const context = filterContext();
+					return Array.from({length: META.ntracks}, (_, i) => i).filter(i => trackMatchesFilters(i, null, context));
+				} finally { Object.assign(state, previous); }
+			}
+		};
+		window.WD_ATLAS = api;
+		return api;
 	}
 
 	function buildDerivedCatalogueFields() {

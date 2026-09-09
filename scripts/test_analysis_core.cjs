@@ -1,0 +1,14 @@
+const assert = require('node:assert/strict');
+const A = require('../assets/analysis-core.js');
+const D = (y,m,d=1) => Date.UTC(y,m-1,d);
+assert.equal(A.firstPeak([1,2,3],[null,5,5]),2);
+assert.equal(A.firstPeak([1,2],[NaN,null]),null);
+assert.equal(A.monthMask(D(2024,12,31),D(2025,1,2)),(1<<11)|1);
+let r = A.annual([{start:D(2024,2,28),end:D(2024,3,2),anchor:D(2024,2,28)}], {start:D(2024,1),end:D(2025,1),months:new Set([2]),mode:'active'}, {start:D(1950,1),end:D(2026,1)});
+assert.equal(r[0].days,29);assert.equal(r[0].count,1);assert.equal(r[0].systemDays,2);assert.equal(r[0].complete,true);
+r = A.annual([], {start:D(2025,2,15),end:D(2025,3,6),months:new Set([2,3]),mode:'active'}, {start:D(1950,1),end:D(2026,1)});
+assert.equal(r[0].days,19);assert.equal(r[0].count,0);assert.equal(r[0].rate,0);assert.equal(r[0].complete,false);
+r = A.annual([], {start:D(2000,1),end:D(2020,1),months:new Set([1]),mode:'genesis'}, {start:D(1950,1),end:D(2026,1)});
+assert.equal(r.length,20);assert.equal(r[4].countMean,null);assert.equal(r[5].countMean,0);assert.equal(r[15].countMean,null);
+assert.deepEqual(A.box([null,NaN,1,2,3,4]),{n:4,low:1.15,q1:1.75,median:2.5,q3:3.25,high:3.8499999999999996});
+console.log('Temporal exposure, missingness, peak ties, quantiles and smoothing: passed');

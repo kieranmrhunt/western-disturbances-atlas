@@ -1,3 +1,6 @@
 __pycache__/
 hpc-logs/
 .weather-runtime/
+.forecast-cache/
+forecast-data/
+.composite-runs/

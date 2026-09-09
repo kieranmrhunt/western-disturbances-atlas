@@ -9,7 +9,7 @@ The interface shares the visual language and main workflow of the [Monsoon Low-P
 - `track_id` identifies one Lagrangian trajectory and is the atlas grain for maps, counts, filtering and exports.
 - Genesis and lysis are the first and last published three-hourly track points.
 - Display names are `WD YYYY NNN`, using genesis year and within-year genesis order; the original `track_id` remains in exports and deep links.
-- Winter years assign December genesis events to the following year. The configurable crossing marker is the first linearly interpolated crossing of that longitude and does not realign trajectories.
+- Year controls use calendar years; exact date ranges select a particular winter. The configurable crossing marker defaults to 60°E, uses the first linearly interpolated crossing and does not realign trajectories.
 - Intensity is track-centred relative vorticity averaged through the 450–300 hPa layer, spectrally truncated to T42, in 10⁻⁵ s⁻¹. This is the upper-tropospheric WD diagnostic; the site does not substitute 850-hPa LPS vorticity.
 - Precipitation is the catalogue's track-centred or regional 24 h diagnostic in mm.
 - Vorticity, precipitation and path-length percentiles are fixed against the complete 16,298-track catalogue. Filtering does not rescale them.
@@ -25,7 +25,7 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 
 ## Features
 
-- Shared global filters for calendar or winter genesis years, exact active-date ranges, genesis month/season, review-paper genesis region, lysis sector, route archetype, sequence membership, contemporaneous climate regime, upper-level vorticity percentile, precipitation percentile, path length, duration and dominant impact region.
+- Shared global filters for calendar years, exact active-date ranges, month/season (genesis, active, peak-vorticity or peak-precipitation timing), review-paper genesis region, lysis sector, route archetype, sequence membership, contemporaneous climate regime, upper-level vorticity percentile, precipitation percentile, path length, duration and dominant impact region.
 - Deep-linkable filter, tab, map and selection state.
 - Individual tracks by default, plus unique-track density, genesis, lysis and selected-track-only layers; every data layer can select the true nearest trajectory using point-to-segment distance rather than canvas paint order. The selected trajectory is black.
 - Contemporaneous ERA5 overlays for positive 350-hPa vorticity, trailing 24 h precipitation, 500-hPa wind speed, temperature and specific humidity, and mean-sea-level pressure. New archive-wide fields stay disabled until their validation manifest exists.
@@ -36,6 +36,107 @@ The atlas deliberately omits LPS pressure-deficit classes, IBTrACS matching, BSI
 - Filter-aware catalogue extremes.
 - Summary CSV, track GeoJSON, reproducibility JSON and selected-track-point CSV exports.
 - Responsive mobile layout and keyboard-accessible tab, table and chart alternatives.
+
+## September 2026 additions
+
+P1–P8 and P10–P12 are included; P9 state/regional precipitation fills are not.
+The masthead strapline has been removed.
+
+- Extremes include finite-only diagnostic histograms, grouped median/IQR boxes
+  with 5–95% whiskers, and selectable two-variable scatter plots with CSV export.
+- Annual activity supports system counts, systems per 100 selected calendar
+  days and WD-days, with a centred 11-year mean only for complete windows.
+  Event counts follow the selected time anchor; WD-days integrate overlap.
+- Climatology adds genesis-to-lysis pathways and climate-state composition
+  against a time/month-matched catalogue reference.
+- A pinned subset supplies the reference median/IQR for evolution plots and
+  the reference storm-centred composite. Both plotted IQRs determine shared
+  evolution scales when a reference is pinned. Links preserve the reference.
+- IMDAA and ERA-Interim trajectory overlays use explicitly labelled legacy
+  catalogues. `scripts/build_reanalysis_matches.py` records source hashes,
+  temporal overlap, distance and uniqueness checks; no-match is not absence.
+- Storm-relative precipitation and longitude–pressure composites use local
+  ERA5 data, with one independent Slurm job per WD. Missing cells and partial
+  archives remain explicit; downloads include each cell's sample count.
+
+### Operational WD forecasts
+
+`scripts/build_forecasts.py` reuses the neighbouring LPS atlas's provider
+adapters and byte-range inventory handling, not its LPS tracks. Only required
+upper-level wind and precipitation GRIB messages are downloaded. Existing
+500/700/850-hPa LPS products alone cannot supply the WD layer diagnostic.
+
+The experimental detector uses T42 450–300-hPa layer vorticity, a 2 × 10⁻⁵ s⁻¹
+positive maximum threshold, 900-km spherical predictive links per six hours,
+36-hour minimum lifetime, eastward progress, path efficiency ≥0.1 and a
+60–80°E, 20–50°N impact-domain intersection. This forecast-specific maximum
+detector is not numerically identical to the catalogue centroid detector.
+GFS uses native 300/350/400/450-hPa winds; IFS, AIFS and GEFS interpolate the
+350/450-hPa levels from 300/400/500 hPa. Precipitation is exact trailing 24 h
+accumulation, unavailable before lead 24 h, area-weighted within 400 km along
+tracks. GEFS contains its control and 30 perturbed members; grouped member
+support is conditional on detection/matching, not a probability forecast.
+
+The Forecasts tab provides model/cycle selection, matched ensemble groups,
+optional member trajectories, selectable tracks, weather overlays, map
+pan/zoom and a draggable evolution-time marker. GFS, IFS and AIFS are shown
+individually or together. Forecast filters are separate from catalogue filters.
+Runs older than 30 h are labelled stale.
+
+```bash
+python scripts/submit_forecast_update.py --dry-run
+python scripts/install_forecast_cron.py --apply
+```
+
+The installer preserves and backs up existing cron tasks. An hourly check
+submits missing members from the latest two eligible cycles after a five-hour
+publication allowance, skips completed/active members and retries failures.
+Slurm schedules jobs without an application-level concurrency cap. Each
+validated member is published atomically to the public `atlas-forecasts-v1`
+directory; incomplete members are not advertised. Raw, re-downloadable GRIB
+cache messages expire after 48 h; published forecast runs are retained.
+All workers reuse the shared `.weather-runtime` font/cache directories.
+
+Forecast providers: [NOAA/NCEP](https://www.nco.ncep.noaa.gov/pmb/products/gfs/)
+and [ECMWF Open Data](https://www.ecmwf.int/en/forecasts/datasets/open-data)
+(IFS/AIFS under CC-BY-4.0). Outputs are modified research guidance, not official
+warnings. The runtime uses the existing `py311` environment and neighbouring
+LPS provider utilities; see the Slurm scripts for resolved environment paths.
+
+### Storm-centred archive
+
+```bash
+sbatch --array=0-8148 scripts/build_composites.slurm 0
+sbatch --array=0-8148 scripts/build_composites.slurm 8149
+sbatch --dependency=afterany:JOB_A:JOB_B scripts/finalize_composites.slurm
+```
+
+The builder uses BADC ERA5 model-level longitude sections when present;
+otherwise it uses the local UT-vorticity/South-Asia pressure-level archive.
+It never silently downloads full-globe remote chunks. Model-level fields are
+surface-pressure masked; the older pressure-level fallback lacks a surface
+pressure field, so below-ground extrapolation can remain at lower levels.
+Nine snapshots use actual UTC track points nearest equal elapsed-life
+fractions. Precipitation is mean UTC-day total in a moving, north-up frame,
+not the lifetime accumulation and not causal attribution. Per-WD products
+retain full 0.25° sections; annual subset shards use a compact 1° grid and
+nine pressure levels. Finalization publishes files before its inventory.
+
+### Climate-change comparison
+
+`scripts/build_climate_change.py` audits the existing CMIP5 CSVs against the
+original six-hourly model-time arrays. It preserves 360-day and no-leap
+calendars and counts each system once, at first entry to 60–80°E, 20–36.5°N.
+The tab uses model pairs with all 240 months covered in both 1980–1999 and
+2080–2099, equal model weights and archived RCP2.6/4.5/6.0/8.5 scenarios.
+Incomplete months are unavailable, not zero. Input hashes, completeness and
+exclusions are in `assets/wd-climate-change-v1.json.gz`. This is an explicitly
+legacy CMIP5 comparison, not CMIP6 or the revised ERA5 detector. Intensity
+comparisons are withheld because the CSVs do not uniquely encode the original
+detector configuration.
+
+Numerical and browser checks are in `scripts/test_analysis_core.cjs`,
+`scripts/test_forecasts.py` and `scripts/browser_science_smoke.cjs`.
 
 ## Deployment
 

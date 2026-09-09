@@ -463,6 +463,56 @@
       "file": "wd-atlas-diag-v6-local_wind_speed_200hpa.f32.gz",
       "bytes": 909814,
       "sha256": "795a3ebdbaa7ba831c4315363276134aa667142444d0bea8f4afbec1f7ce757b"
+    },
+    "extension:atlas-app.js": {
+      "file": "atlas-app.js",
+      "bytes": 169007,
+      "sha256": "405cc8e3b5a9c5672c5ad21002027c39bf346f48087fb54fbcbb26de1b181378"
+    },
+    "extension:atlas.css": {
+      "file": "atlas.css",
+      "bytes": 30732,
+      "sha256": "66ba1852066a661b2d9c28c4228210b04c7dc8153b5facaba01269bd2d0edca5"
+    },
+    "extension:analysis-core.js": {
+      "file": "analysis-core.js",
+      "bytes": 3607,
+      "sha256": "e93b56c66cb75d8db8784be051eb3a5dbd23947bffe54fed8e1c05c4138fcd10"
+    },
+    "extension:atlas-science.js": {
+      "file": "atlas-science.js",
+      "bytes": 24359,
+      "sha256": "3b55890bd7837e40a61b6382a440545495385fc4da28e787ae2e4526fbea7e33"
+    },
+    "extension:atlas-reanalyses.js": {
+      "file": "atlas-reanalyses.js",
+      "bytes": 3400,
+      "sha256": "2775d5a5d560f3dcc192b42ec091cd6bd5612ca0218f61ebf4a59eb737ff5acd"
+    },
+    "extension:atlas-forecast.js": {
+      "file": "atlas-forecast.js",
+      "bytes": 20940,
+      "sha256": "56dfd754ae0f3c8a1453f69d867cde6ed3445d68946a69499100b4a441ad1522"
+    },
+    "extension:atlas-composites.js": {
+      "file": "atlas-composites.js",
+      "bytes": 12481,
+      "sha256": "d90e51121872d3862e1bae1024c6dde1e9c5416289bfff0afa3f7e9ec8c6b0bf"
+    },
+    "extension:atlas-climate-change.js": {
+      "file": "atlas-climate-change.js",
+      "bytes": 8819,
+      "sha256": "9b62ac1a209ec594c506eda990d40cea298df1333823091e0f331dcdf9679f60"
+    },
+    "extension:wd-reanalysis-matches-v1.json.gz": {
+      "file": "wd-reanalysis-matches-v1.json.gz",
+      "bytes": 807895,
+      "sha256": "8e9cd4edd4df6007c1ad9569ad767cbdd9811412d084b76fc74a5c5e2cb12d84"
+    },
+    "extension:wd-climate-change-v1.json.gz": {
+      "file": "wd-climate-change-v1.json.gz",
+      "bytes": 133012,
+      "sha256": "05d4287506cfc1d33c203afb5b7ba7803c890bd57ff6cb96f8e597dc658890fd"
     }
   }
 }
